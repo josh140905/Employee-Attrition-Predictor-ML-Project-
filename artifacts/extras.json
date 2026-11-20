@@ -1,0 +1,138 @@
+{
+  "assumptions": {
+    "replacement_cost_pct_of_annual_salary": 0.5,
+    "intervention_cost_pct_of_monthly_salary": 0.5,
+    "intervention_success_rate": 0.3
+  },
+  "n_test": 875,
+  "bootstrap_95ci": {
+    "Logistic Regression": {
+      "precision": [
+        0.252,
+        0.357
+      ],
+      "recall": [
+        0.565,
+        0.718
+      ],
+      "f1": [
+        0.352,
+        0.468
+      ],
+      "roc_auc": [
+        0.734,
+        0.811
+      ]
+    },
+    "Random Forest": {
+      "precision": [
+        0.237,
+        0.341
+      ],
+      "recall": [
+        0.558,
+        0.726
+      ],
+      "f1": [
+        0.336,
+        0.453
+      ],
+      "roc_auc": [
+        0.704,
+        0.789
+      ]
+    },
+    "Gradient Boosting (reference)": {
+      "precision": [
+        0.225,
+        0.326
+      ],
+      "recall": [
+        0.556,
+        0.721
+      ],
+      "f1": [
+        0.323,
+        0.44
+      ],
+      "roc_auc": [
+        0.721,
+        0.804
+      ]
+    }
+  },
+  "business_value": {
+    "Random Forest (our model)": {
+      "flagged": 299,
+      "net_benefit": 24563,
+      "savings": 802037,
+      "intervention_cost": 777474
+    },
+    "Random flagging, same number flagged": {
+      "flagged": 306,
+      "net_benefit": -443798,
+      "savings": 515632,
+      "intervention_cost": 959430
+    },
+    "Flag everyone": {
+      "flagged": 875,
+      "net_benefit": -1514515,
+      "savings": 1318052,
+      "intervention_cost": 2832566
+    },
+    "Do nothing": {
+      "flagged": 0,
+      "net_benefit": 0,
+      "savings": 0,
+      "intervention_cost": 0
+    }
+  },
+  "fairness_check": {
+    "Gender": [
+      {
+        "Gender": "Female",
+        "n": "1399",
+        "mean_risk": "0.157",
+        "flagged_rate": "0.328",
+        "actual_attrition": "0.147"
+      },
+      {
+        "Gender": "Male",
+        "n": "2101",
+        "mean_risk": "0.159",
+        "flagged_rate": "0.334",
+        "actual_attrition": "0.162"
+      }
+    ],
+    "AgeBand": [
+      {
+        "AgeBand": "<=30",
+        "n": "838",
+        "mean_risk": "0.223",
+        "flagged_rate": "0.594",
+        "actual_attrition": "0.236"
+      },
+      {
+        "AgeBand": "31-40",
+        "n": "1469",
+        "mean_risk": "0.154",
+        "flagged_rate": "0.317",
+        "actual_attrition": "0.146"
+      },
+      {
+        "AgeBand": "41-50",
+        "n": "976",
+        "mean_risk": "0.12",
+        "flagged_rate": "0.168",
+        "actual_attrition": "0.118"
+      },
+      {
+        "AgeBand": "50+",
+        "n": "217",
+        "mean_risk": "0.115",
+        "flagged_rate": "0.152",
+        "actual_attrition": "0.088"
+      }
+    ]
+  }
+}

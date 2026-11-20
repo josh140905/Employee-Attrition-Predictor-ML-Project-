@@ -1,0 +1,149 @@
+{
+  "data_source": "synthetic_hr_attrition.csv",
+  "n_train": 2625,
+  "repeats": 1,
+  "quick": true,
+  "method": "nested CV on the train split only; inner 5-fold search, outer 5-fold OOF",
+  "monotonic_constraints": {
+    "OverTime": 1,
+    "BurnoutRisk": 1,
+    "LongCommute": 1,
+    "DistanceFromHome": 1,
+    "JobSatisfaction": -1,
+    "EnvironmentSatisfaction": -1,
+    "WorkLifeBalance": -1,
+    "JobInvolvement": -1,
+    "RelationshipSatisfaction": -1,
+    "SatisfactionIndex": -1,
+    "IncomeVsLevelMedian": -1,
+    "MonthlyIncome": -1
+  },
+  "results": {
+    "LR": {
+      "roc_auc": {
+        "mean": 0.7797,
+        "std": 0.0
+      },
+      "pr_auc": {
+        "mean": 0.4378,
+        "std": 0.0
+      },
+      "f1": {
+        "mean": 0.4482,
+        "std": 0.0
+      },
+      "recall": {
+        "mean": 0.6537,
+        "std": 0.0
+      }
+    },
+    "RF (current)": {
+      "roc_auc": {
+        "mean": 0.7623,
+        "std": 0.0
+      },
+      "pr_auc": {
+        "mean": 0.4091,
+        "std": 0.0
+      },
+      "f1": {
+        "mean": 0.4237,
+        "std": 0.0
+      },
+      "recall": {
+        "mean": 0.6537,
+        "std": 0.0
+      }
+    },
+    "RF (wide search)": {
+      "roc_auc": {
+        "mean": 0.7617,
+        "std": 0.0
+      },
+      "pr_auc": {
+        "mean": 0.4279,
+        "std": 0.0
+      },
+      "f1": {
+        "mean": 0.4233,
+        "std": 0.0
+      },
+      "recall": {
+        "mean": 0.6561,
+        "std": 0.0
+      }
+    },
+    "HGB (no constraints)": {
+      "roc_auc": {
+        "mean": 0.7647,
+        "std": 0.0
+      },
+      "pr_auc": {
+        "mean": 0.4181,
+        "std": 0.0
+      },
+      "f1": {
+        "mean": 0.4183,
+        "std": 0.0
+      },
+      "recall": {
+        "mean": 0.6683,
+        "std": 0.0
+      }
+    },
+    "HGB (monotonic)": {
+      "roc_auc": {
+        "mean": 0.7649,
+        "std": 0.0
+      },
+      "pr_auc": {
+        "mean": 0.4314,
+        "std": 0.0
+      },
+      "f1": {
+        "mean": 0.4402,
+        "std": 0.0
+      },
+      "recall": {
+        "mean": 0.6512,
+        "std": 0.0
+      }
+    },
+    "Avg LR + RF (current)": {
+      "roc_auc": {
+        "mean": 0.7817,
+        "std": 0.0
+      },
+      "pr_auc": {
+        "mean": 0.4441,
+        "std": 0.0
+      },
+      "f1": {
+        "mean": 0.4471,
+        "std": 0.0
+      },
+      "recall": {
+        "mean": 0.6854,
+        "std": 0.0
+      }
+    },
+    "Avg LR + HGB (monotonic)": {
+      "roc_auc": {
+        "mean": 0.782,
+        "std": 0.0
+      },
+      "pr_auc": {
+        "mean": 0.45,
+        "std": 0.0
+      },
+      "f1": {
+        "mean": 0.4517,
+        "std": 0.0
+      },
+      "recall": {
+        "mean": 0.6732,
+        "std": 0.0
+      }
+    }
+  }
+}
