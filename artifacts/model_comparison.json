@@ -1,8 +1,8 @@
 {
   "data_source": "synthetic_hr_attrition.csv",
   "n_train": 2625,
-  "repeats": 1,
-  "quick": true,
+  "repeats": 3,
+  "quick": false,
   "method": "nested CV on the train split only; inner 5-fold search, outer 5-fold OOF",
   "monotonic_constraints": {
     "OverTime": 1,
@@ -21,128 +21,128 @@
   "results": {
     "LR": {
       "roc_auc": {
-        "mean": 0.7797,
-        "std": 0.0
+        "mean": 0.7805,
+        "std": 0.0006
       },
       "pr_auc": {
-        "mean": 0.4378,
-        "std": 0.0
+        "mean": 0.4466,
+        "std": 0.0062
       },
       "f1": {
-        "mean": 0.4482,
-        "std": 0.0
+        "mean": 0.4519,
+        "std": 0.0033
       },
       "recall": {
-        "mean": 0.6537,
-        "std": 0.0
+        "mean": 0.6569,
+        "std": 0.0046
       }
     },
     "RF (current)": {
       "roc_auc": {
-        "mean": 0.7623,
-        "std": 0.0
+        "mean": 0.7571,
+        "std": 0.0029
       },
       "pr_auc": {
-        "mean": 0.4091,
-        "std": 0.0
+        "mean": 0.4034,
+        "std": 0.0087
       },
       "f1": {
-        "mean": 0.4237,
-        "std": 0.0
+        "mean": 0.4199,
+        "std": 0.0052
       },
       "recall": {
-        "mean": 0.6537,
-        "std": 0.0
+        "mean": 0.6642,
+        "std": 0.0122
       }
     },
     "RF (wide search)": {
       "roc_auc": {
-        "mean": 0.7617,
-        "std": 0.0
+        "mean": 0.7626,
+        "std": 0.0024
       },
       "pr_auc": {
-        "mean": 0.4279,
-        "std": 0.0
+        "mean": 0.4063,
+        "std": 0.009
       },
       "f1": {
-        "mean": 0.4233,
-        "std": 0.0
+        "mean": 0.4191,
+        "std": 0.0036
       },
       "recall": {
-        "mean": 0.6561,
-        "std": 0.0
+        "mean": 0.6675,
+        "std": 0.0115
       }
     },
     "HGB (no constraints)": {
       "roc_auc": {
-        "mean": 0.7647,
-        "std": 0.0
+        "mean": 0.7646,
+        "std": 0.0024
       },
       "pr_auc": {
-        "mean": 0.4181,
-        "std": 0.0
+        "mean": 0.4148,
+        "std": 0.0063
       },
       "f1": {
-        "mean": 0.4183,
-        "std": 0.0
+        "mean": 0.4304,
+        "std": 0.0066
       },
       "recall": {
-        "mean": 0.6683,
-        "std": 0.0
+        "mean": 0.6667,
+        "std": 0.0136
       }
     },
     "HGB (monotonic)": {
       "roc_auc": {
-        "mean": 0.7649,
-        "std": 0.0
+        "mean": 0.7633,
+        "std": 0.0043
       },
       "pr_auc": {
-        "mean": 0.4314,
-        "std": 0.0
+        "mean": 0.421,
+        "std": 0.0081
       },
       "f1": {
-        "mean": 0.4402,
-        "std": 0.0
+        "mean": 0.4302,
+        "std": 0.004
       },
       "recall": {
-        "mean": 0.6512,
-        "std": 0.0
+        "mean": 0.6732,
+        "std": 0.0207
       }
     },
     "Avg LR + RF (current)": {
       "roc_auc": {
-        "mean": 0.7817,
-        "std": 0.0
+        "mean": 0.781,
+        "std": 0.001
       },
       "pr_auc": {
-        "mean": 0.4441,
-        "std": 0.0
+        "mean": 0.4473,
+        "std": 0.0014
       },
       "f1": {
-        "mean": 0.4471,
-        "std": 0.0
+        "mean": 0.4483,
+        "std": 0.0014
       },
       "recall": {
-        "mean": 0.6854,
-        "std": 0.0
+        "mean": 0.6659,
+        "std": 0.0119
       }
     },
     "Avg LR + HGB (monotonic)": {
       "roc_auc": {
-        "mean": 0.782,
-        "std": 0.0
+        "mean": 0.7805,
+        "std": 0.0019
       },
       "pr_auc": {
-        "mean": 0.45,
-        "std": 0.0
+        "mean": 0.4458,
+        "std": 0.0088
       },
       "f1": {
-        "mean": 0.4517,
-        "std": 0.0
+        "mean": 0.4516,
+        "std": 0.0066
       },
       "recall": {
-        "mean": 0.6732,
-        "std": 0.0
+        "mean": 0.6756,
+        "std": 0.015
       }
     }
   }
