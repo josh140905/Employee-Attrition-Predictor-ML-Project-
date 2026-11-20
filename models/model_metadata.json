@@ -1,0 +1,186 @@
+{
+  "model_name": "Logistic Regression",
+  "n_training_samples": 1176,
+  "n_test_samples": 294,
+  "feature_count_raw": 33,
+  "excluded_features": [
+    "EmployeeNumber",
+    "EmployeeCount",
+    "StandardHours",
+    "Over18",
+    "Gender",
+    "MaritalStatus"
+  ],
+  "cv_folds": 15,
+  "cv_summary": [
+    {
+      "Model": "Logistic Regression",
+      "accuracy_mean": 0.7693,
+      "accuracy_std": 0.0266,
+      "precision_mean": 0.39,
+      "precision_std": 0.0363,
+      "recall_mean": 0.7351,
+      "recall_std": 0.0604,
+      "f1_mean": 0.5081,
+      "f1_std": 0.0349,
+      "roc_auc_mean": 0.827,
+      "roc_auc_std": 0.0307,
+      "pr_auc_mean": 0.6097,
+      "pr_auc_std": 0.0608
+    },
+    {
+      "Model": "Random Forest",
+      "accuracy_mean": 0.8481,
+      "accuracy_std": 0.0179,
+      "precision_mean": 0.5429,
+      "precision_std": 0.0695,
+      "recall_mean": 0.4368,
+      "recall_std": 0.0542,
+      "f1_mean": 0.4814,
+      "f1_std": 0.0515,
+      "roc_auc_mean": 0.7885,
+      "roc_auc_std": 0.0346,
+      "pr_auc_mean": 0.5337,
+      "pr_auc_std": 0.0599
+    },
+    {
+      "Model": "Extra Trees",
+      "accuracy_mean": 0.8469,
+      "accuracy_std": 0.0193,
+      "precision_mean": 0.5376,
+      "precision_std": 0.069,
+      "recall_mean": 0.4491,
+      "recall_std": 0.0611,
+      "f1_mean": 0.4864,
+      "f1_std": 0.0536,
+      "roc_auc_mean": 0.7926,
+      "roc_auc_std": 0.0384,
+      "pr_auc_mean": 0.5488,
+      "pr_auc_std": 0.0482
+    },
+    {
+      "Model": "Gradient Boosting",
+      "accuracy_mean": 0.8696,
+      "accuracy_std": 0.0128,
+      "precision_mean": 0.7075,
+      "precision_std": 0.0759,
+      "recall_mean": 0.3333,
+      "recall_std": 0.0663,
+      "f1_mean": 0.4496,
+      "f1_std": 0.0683,
+      "roc_auc_mean": 0.7982,
+      "roc_auc_std": 0.0368,
+      "pr_auc_mean": 0.562,
+      "pr_auc_std": 0.0527
+    },
+    {
+      "Model": "LightGBM",
+      "accuracy_mean": 0.8415,
+      "accuracy_std": 0.0209,
+      "precision_mean": 0.5174,
+      "precision_std": 0.0674,
+      "recall_mean": 0.4965,
+      "recall_std": 0.0516,
+      "f1_mean": 0.5039,
+      "f1_std": 0.0461,
+      "roc_auc_mean": 0.782,
+      "roc_auc_std": 0.0304,
+      "pr_auc_mean": 0.5531,
+      "pr_auc_std": 0.056
+    },
+    {
+      "Model": "XGBoost",
+      "accuracy_mean": 0.8515,
+      "accuracy_std": 0.0191,
+      "precision_mean": 0.5534,
+      "precision_std": 0.0729,
+      "recall_mean": 0.4737,
+      "recall_std": 0.0686,
+      "f1_mean": 0.5067,
+      "f1_std": 0.0579,
+      "roc_auc_mean": 0.7859,
+      "roc_auc_std": 0.0374,
+      "pr_auc_mean": 0.5592,
+      "pr_auc_std": 0.0637
+    }
+  ],
+  "training_threshold_optimization": {
+    "oof_roc_auc": 0.8303,
+    "oof_pr_auc": 0.6118,
+    "optimal_threshold_f1": 0.75,
+    "optimal_f1": 0.6023,
+    "optimal_threshold_cost": 0.61
+  },
+  "held_out_test_metrics": {
+    "test_roc_auc": 0.7793,
+    "test_pr_auc": 0.5326,
+    "default_eval": {
+      "threshold": 0.5,
+      "accuracy": 0.7619,
+      "precision": 0.3614,
+      "recall": 0.6383,
+      "f1": 0.4615,
+      "confusion_matrix": [
+        [
+          194,
+          53
+        ],
+        [
+          17,
+          30
+        ]
+      ]
+    },
+    "optimized_eval": {
+      "threshold": 0.75,
+      "accuracy": 0.8435,
+      "precision": 0.5161,
+      "recall": 0.3404,
+      "f1": 0.4103,
+      "confusion_matrix": [
+        [
+          232,
+          15
+        ],
+        [
+          31,
+          16
+        ]
+      ]
+    }
+  },
+  "fairness_audit": {
+    "gender_fairness": {
+      "Female": {
+        "headcount": 116,
+        "predicted_positive_rate": 0.1207,
+        "actual_attrition_rate": 0.1379,
+        "false_positive_rate": 0.06,
+        "false_negative_rate": 0.5
+      },
+      "Male": {
+        "headcount": 178,
+        "predicted_positive_rate": 0.0955,
+        "actual_attrition_rate": 0.1742,
+        "false_positive_rate": 0.0612,
+        "false_negative_rate": 0.7419
+      }
+    },
+    "age_adea_fairness": {
+      "Under 40": {
+        "headcount": 193,
+        "predicted_positive_rate": 0.1295,
+        "actual_attrition_rate": 0.1606,
+        "false_positive_rate": 0.0741,
+        "false_negative_rate": 0.5806
+      },
+      "40 and Over": {
+        "headcount": 101,
+        "predicted_positive_rate": 0.0594,
+        "actual_attrition_rate": 0.1584,
+        "false_positive_rate": 0.0353,
+        "false_negative_rate": 0.8125
+      }
+    }
+  }
+}
