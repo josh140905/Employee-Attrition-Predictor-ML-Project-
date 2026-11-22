@@ -47,6 +47,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+pytest-cache-files-*/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
@@ -56,6 +57,20 @@ coverage.xml
 .venv
 env.bak/
 venv.bak/
+.streamlit/secrets.toml
+.streamlit/*.local.toml
+
+# Scratch & temporary files
+scratch/
+tmp/
+temp/
+*.tmp
+
+# Sensitive data exports (preserve public benchmark dataset)
+data/raw/
+data/exports/
+data/*_private.*
+data/*.xlsx
 
 # IDE & Editor files
 .vscode/

@@ -29,6 +29,7 @@ from sklearn.model_selection import (
     cross_val_predict
 )
 from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import (
     RandomForestClassifier,
@@ -58,7 +59,8 @@ from src.features import (
     load_raw_data,
     prepare_features_and_target,
     get_feature_types,
-    build_preprocessor
+    build_preprocessor,
+    DEFAULT_DROP_COLS
 )
 
 
@@ -414,12 +416,36 @@ def run_full_evaluation():
     print("Gender Subgroups:", json.dumps(fairness_res["gender_fairness"], indent=2))
     print("Age ADEA Subgroups:", json.dumps(fairness_res["age_adea_fairness"], indent=2))
 
-    # 9. Save Selected Day 2 Model and Metadata (Separate file, do NOT overwrite attrition_model.pkl yet)
+    # 9. Save Day 2 Validated Artifacts
     models_dir = project_root / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
     best_model_path = models_dir / "best_model_day2.pkl"
     joblib.dump(winning_pipe, best_model_path)
     print(f"\nSaved Day 2 Validated Model: {best_model_path}")
+
+    # Fit and save Platt-calibrated model on training data strictly (CV=5, zero test leakage)
+    cal_pipe = CalibratedClassifierCV(estimator=winning_pipe, method="sigmoid", cv=5)
+    cal_pipe.fit(X_train, y_train)
+    cal_model_path = models_dir / "calibrated_model_day2.pkl"
+    joblib.dump(cal_pipe, cal_model_path)
+    print(f"Saved Day 2 Calibrated Model (Training CV=5): {cal_model_path}")
+
+    # Also fit Model B (Age Excluded) - Recommended Default Candidate
+    X_B, y_B, S_B = prepare_features_and_target(raw_df, drop_cols=DEFAULT_DROP_COLS + ["Age"])
+    X_train_B, X_test_B, _, _, _, _ = train_test_split(X_B, y_B, S_B, test_size=0.20, random_state=42, stratify=y_B)
+    prep_B = build_preprocessor(*get_feature_types(X_train_B))
+    clf_B = LogisticRegression(class_weight="balanced", max_iter=1000, C=0.5, random_state=42)
+    pipe_B = Pipeline([("preprocessor", prep_B), ("classifier", clf_B)])
+    pipe_B.fit(X_train_B, y_train)
+    pipe_B_path = models_dir / "best_model_day2_age_excluded.pkl"
+    joblib.dump(pipe_B, pipe_B_path)
+    print(f"Saved Day 2 Age-Excluded Model: {pipe_B_path}")
+
+    cal_pipe_B = CalibratedClassifierCV(estimator=pipe_B, method="sigmoid", cv=5)
+    cal_pipe_B.fit(X_train_B, y_train)
+    cal_B_path = models_dir / "calibrated_model_day2_age_excluded.pkl"
+    joblib.dump(cal_pipe_B, cal_B_path)
+    print(f"Saved Day 2 Age-Excluded Calibrated Model: {cal_B_path}")
 
     # Also fit and save top Tree Ensemble for TreeSHAP explainability
     tree_clf = models_dict["Random Forest"]

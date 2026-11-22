@@ -1,0 +1,4 @@
+model,total_instances,overtime_violations,overtime_violation_rate,overtime_consistency_pct,satisfaction_violations,satisfaction_violation_rate,satisfaction_consistency_pct
+HistGB (Unconstrained),1176,119,0.1012,89.88,85,0.0723,92.77
+HistGB (OverTime Monotonic),1176,0,0.0,100.0,82,0.0697,93.03
+HistGB (Domain Full Monotonic),1176,0,0.0,100.0,0,0.0,100.0

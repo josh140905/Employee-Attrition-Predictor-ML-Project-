@@ -1,185 +1,511 @@
 {
-  "model_name": "Logistic Regression",
+  "audit_scope": "RetainIQ Day 2 Final Governance, Calibration & Fairness Audit",
+  "date": "November 20, 2026",
+  "status": "Audited, Verified, and Serialized",
+  "recommended_default_candidate": "Model B: Age Excluded (Calibrated Platt Sigmoid)",
   "n_training_samples": 1176,
   "n_test_samples": 294,
-  "feature_count_raw": 33,
-  "excluded_features": [
-    "EmployeeNumber",
-    "EmployeeCount",
-    "StandardHours",
-    "Over18",
-    "Gender",
-    "MaritalStatus"
-  ],
-  "cv_folds": 15,
-  "cv_summary": [
-    {
-      "Model": "Logistic Regression",
-      "accuracy_mean": 0.7693,
-      "accuracy_std": 0.0266,
-      "precision_mean": 0.39,
-      "precision_std": 0.0363,
-      "recall_mean": 0.7351,
-      "recall_std": 0.0604,
-      "f1_mean": 0.5081,
-      "f1_std": 0.0349,
-      "roc_auc_mean": 0.827,
-      "roc_auc_std": 0.0307,
-      "pr_auc_mean": 0.6097,
-      "pr_auc_std": 0.0608
-    },
-    {
-      "Model": "Random Forest",
-      "accuracy_mean": 0.8481,
-      "accuracy_std": 0.0179,
-      "precision_mean": 0.5429,
-      "precision_std": 0.0695,
-      "recall_mean": 0.4368,
-      "recall_std": 0.0542,
-      "f1_mean": 0.4814,
-      "f1_std": 0.0515,
-      "roc_auc_mean": 0.7885,
-      "roc_auc_std": 0.0346,
-      "pr_auc_mean": 0.5337,
-      "pr_auc_std": 0.0599
-    },
-    {
-      "Model": "Extra Trees",
-      "accuracy_mean": 0.8469,
-      "accuracy_std": 0.0193,
-      "precision_mean": 0.5376,
-      "precision_std": 0.069,
-      "recall_mean": 0.4491,
-      "recall_std": 0.0611,
-      "f1_mean": 0.4864,
-      "f1_std": 0.0536,
-      "roc_auc_mean": 0.7926,
-      "roc_auc_std": 0.0384,
-      "pr_auc_mean": 0.5488,
-      "pr_auc_std": 0.0482
-    },
-    {
-      "Model": "Gradient Boosting",
-      "accuracy_mean": 0.8696,
-      "accuracy_std": 0.0128,
-      "precision_mean": 0.7075,
-      "precision_std": 0.0759,
-      "recall_mean": 0.3333,
-      "recall_std": 0.0663,
-      "f1_mean": 0.4496,
-      "f1_std": 0.0683,
-      "roc_auc_mean": 0.7982,
-      "roc_auc_std": 0.0368,
-      "pr_auc_mean": 0.562,
-      "pr_auc_std": 0.0527
-    },
-    {
-      "Model": "LightGBM",
-      "accuracy_mean": 0.8415,
-      "accuracy_std": 0.0209,
-      "precision_mean": 0.5174,
-      "precision_std": 0.0674,
-      "recall_mean": 0.4965,
-      "recall_std": 0.0516,
-      "f1_mean": 0.5039,
-      "f1_std": 0.0461,
-      "roc_auc_mean": 0.782,
-      "roc_auc_std": 0.0304,
-      "pr_auc_mean": 0.5531,
-      "pr_auc_std": 0.056
-    },
-    {
-      "Model": "XGBoost",
-      "accuracy_mean": 0.8515,
-      "accuracy_std": 0.0191,
-      "precision_mean": 0.5534,
-      "precision_std": 0.0729,
-      "recall_mean": 0.4737,
-      "recall_std": 0.0686,
-      "f1_mean": 0.5067,
-      "f1_std": 0.0579,
-      "roc_auc_mean": 0.7859,
-      "roc_auc_std": 0.0374,
-      "pr_auc_mean": 0.5592,
-      "pr_auc_std": 0.0637
-    }
-  ],
-  "training_threshold_optimization": {
-    "oof_roc_auc": 0.8303,
-    "oof_pr_auc": 0.6118,
-    "optimal_threshold_f1": 0.75,
-    "optimal_f1": 0.6023,
-    "optimal_threshold_cost": 0.61
+  "test_actual_attritions": 47,
+  "test_base_rate": 0.1599,
+  "artifacts": {
+    "model_a_uncalibrated": "models/best_model_day2.pkl",
+    "model_b_uncalibrated": "models/best_model_day2_age_excluded.pkl",
+    "model_a_calibrated": "models/calibrated_model_day2.pkl",
+    "model_b_calibrated": "models/calibrated_model_day2_age_excluded.pkl",
+    "legacy_baseline": "models/attrition_model.pkl",
+    "tree_shap_benchmark": "models/tree_model_day2.pkl",
+    "experimental_research_ensemble": "models/calibrated_ensemble_50_50.pkl"
   },
-  "held_out_test_metrics": {
-    "test_roc_auc": 0.7793,
-    "test_pr_auc": 0.5326,
-    "default_eval": {
-      "threshold": 0.5,
-      "accuracy": 0.7619,
-      "precision": 0.3614,
-      "recall": 0.6383,
-      "f1": 0.4615,
-      "confusion_matrix": [
-        [
-          194,
-          53
-        ],
-        [
-          17,
-          30
-        ]
-      ]
-    },
-    "optimized_eval": {
-      "threshold": 0.75,
-      "accuracy": 0.8435,
-      "precision": 0.5161,
-      "recall": 0.3404,
-      "f1": 0.4103,
-      "confusion_matrix": [
-        [
-          232,
-          15
-        ],
-        [
-          31,
-          16
-        ]
-      ]
-    }
+  "final_selection_decision": {
+    "decision": "RETAIN_PRIMARY_MODEL",
+    "primary_production_model": "models/calibrated_model_day2_age_excluded.pkl",
+    "experimental_research_artifact": "models/calibrated_ensemble_50_50.pkl",
+    "decision_date": "November 21, 2026",
+    "holdout_status": "consumed_and_frozen",
+    "documentation": "docs/final_model_selection_decision.md"
   },
-  "fairness_audit": {
-    "gender_fairness": {
-      "Female": {
-        "headcount": 116,
-        "predicted_positive_rate": 0.1207,
-        "actual_attrition_rate": 0.1379,
-        "false_positive_rate": 0.06,
-        "false_negative_rate": 0.5
+  "model_comparison_held_out_test": {
+    "model_a_age_included": {
+      "feature_count_raw": 33,
+      "feature_count_transformed": 46,
+      "uncalibrated_eval_p050": {
+        "threshold": 0.5,
+        "accuracy": 0.7619,
+        "precision": 0.3614,
+        "recall": 0.6383,
+        "f1": 0.4615,
+        "roc_auc": 0.7793,
+        "pr_auc": 0.5326,
+        "brier_score": 0.1598,
+        "log_loss": 0.4874,
+        "ece": 0.189,
+        "mean_predicted_prob": 0.3463,
+        "confusion_matrix": [
+          [
+            194,
+            53
+          ],
+          [
+            17,
+            30
+          ]
+        ]
       },
-      "Male": {
-        "headcount": 178,
-        "predicted_positive_rate": 0.0955,
-        "actual_attrition_rate": 0.1742,
-        "false_positive_rate": 0.0612,
-        "false_negative_rate": 0.7419
+      "calibrated_eval_p016": {
+        "threshold": 0.16,
+        "accuracy": 0.7279,
+        "precision": 0.3299,
+        "recall": 0.6809,
+        "f1": 0.4444,
+        "roc_auc": 0.7795,
+        "pr_auc": 0.5346,
+        "brier_score": 0.1051,
+        "log_loss": 0.361,
+        "ece": 0.0438,
+        "mean_predicted_prob": 0.15,
+        "confusion_matrix": [
+          [
+            182,
+            65
+          ],
+          [
+            15,
+            32
+          ]
+        ]
+      },
+      "subgroup_fairness_uncalibrated_p050": {
+        "gender_fairness": {
+          "Female": {
+            "sample_size_N": 116,
+            "actual_attritions": 16,
+            "actual_base_rate": 0.1379,
+            "predicted_positives": 37,
+            "selection_rate": 0.319,
+            "true_positives": 11,
+            "false_positives": 26,
+            "true_negatives": 74,
+            "false_negatives": 5,
+            "false_positive_rate": 0.26,
+            "false_negative_rate": 0.3125,
+            "precision": 0.2973,
+            "recall": 0.6875
+          },
+          "Male": {
+            "sample_size_N": 178,
+            "actual_attritions": 31,
+            "actual_base_rate": 0.1742,
+            "predicted_positives": 46,
+            "selection_rate": 0.2584,
+            "true_positives": 19,
+            "false_positives": 27,
+            "true_negatives": 120,
+            "false_negatives": 12,
+            "false_positive_rate": 0.1837,
+            "false_negative_rate": 0.3871,
+            "precision": 0.413,
+            "recall": 0.6129
+          }
+        },
+        "age_adea_fairness": {
+          "Under 40": {
+            "sample_size_N": 193,
+            "actual_attritions": 31,
+            "actual_base_rate": 0.1606,
+            "predicted_positives": 67,
+            "selection_rate": 0.3472,
+            "true_positives": 23,
+            "false_positives": 44,
+            "true_negatives": 118,
+            "false_negatives": 8,
+            "false_positive_rate": 0.2716,
+            "false_negative_rate": 0.2581,
+            "precision": 0.3433,
+            "recall": 0.7419
+          },
+          "40 and Over": {
+            "sample_size_N": 101,
+            "actual_attritions": 16,
+            "actual_base_rate": 0.1584,
+            "predicted_positives": 16,
+            "selection_rate": 0.1584,
+            "true_positives": 7,
+            "false_positives": 9,
+            "true_negatives": 76,
+            "false_negatives": 9,
+            "false_positive_rate": 0.1059,
+            "false_negative_rate": 0.5625,
+            "precision": 0.4375,
+            "recall": 0.4375
+          }
+        }
+      },
+      "subgroup_fairness_calibrated_p016": {
+        "gender_fairness": {
+          "Female": {
+            "sample_size_N": 116,
+            "actual_attritions": 16,
+            "actual_base_rate": 0.1379,
+            "predicted_positives": 43,
+            "selection_rate": 0.3707,
+            "true_positives": 11,
+            "false_positives": 32,
+            "true_negatives": 68,
+            "false_negatives": 5,
+            "false_positive_rate": 0.32,
+            "false_negative_rate": 0.3125,
+            "precision": 0.2558,
+            "recall": 0.6875
+          },
+          "Male": {
+            "sample_size_N": 178,
+            "actual_attritions": 31,
+            "actual_base_rate": 0.1742,
+            "predicted_positives": 54,
+            "selection_rate": 0.3034,
+            "true_positives": 21,
+            "false_positives": 33,
+            "true_negatives": 114,
+            "false_negatives": 10,
+            "false_positive_rate": 0.2245,
+            "false_negative_rate": 0.3226,
+            "precision": 0.3889,
+            "recall": 0.6774
+          }
+        },
+        "age_adea_fairness": {
+          "Under 40": {
+            "sample_size_N": 193,
+            "actual_attritions": 31,
+            "actual_base_rate": 0.1606,
+            "predicted_positives": 78,
+            "selection_rate": 0.4041,
+            "true_positives": 24,
+            "false_positives": 54,
+            "true_negatives": 108,
+            "false_negatives": 7,
+            "false_positive_rate": 0.3333,
+            "false_negative_rate": 0.2258,
+            "precision": 0.3077,
+            "recall": 0.7742
+          },
+          "40 and Over": {
+            "sample_size_N": 101,
+            "actual_attritions": 16,
+            "actual_base_rate": 0.1584,
+            "predicted_positives": 19,
+            "selection_rate": 0.1881,
+            "true_positives": 8,
+            "false_positives": 11,
+            "true_negatives": 74,
+            "false_negatives": 8,
+            "false_positive_rate": 0.1294,
+            "false_negative_rate": 0.5,
+            "precision": 0.4211,
+            "recall": 0.5
+          }
+        }
       }
     },
-    "age_adea_fairness": {
-      "Under 40": {
-        "headcount": 193,
-        "predicted_positive_rate": 0.1295,
-        "actual_attrition_rate": 0.1606,
-        "false_positive_rate": 0.0741,
-        "false_negative_rate": 0.5806
+    "model_b_age_excluded_RECOMMENDED": {
+      "feature_count_raw": 32,
+      "feature_count_transformed": 45,
+      "uncalibrated_eval_p050": {
+        "threshold": 0.5,
+        "accuracy": 0.7551,
+        "precision": 0.3494,
+        "recall": 0.617,
+        "f1": 0.4462,
+        "roc_auc": 0.7865,
+        "pr_auc": 0.5596,
+        "brier_score": 0.1596,
+        "log_loss": 0.4871,
+        "ece": 0.1935,
+        "mean_predicted_prob": 0.3493,
+        "confusion_matrix": [
+          [
+            193,
+            54
+          ],
+          [
+            18,
+            29
+          ]
+        ]
       },
-      "40 and Over": {
-        "headcount": 101,
-        "predicted_positive_rate": 0.0594,
-        "actual_attrition_rate": 0.1584,
-        "false_positive_rate": 0.0353,
-        "false_negative_rate": 0.8125
+      "calibrated_eval_p016": {
+        "threshold": 0.16,
+        "accuracy": 0.7449,
+        "precision": 0.3478,
+        "recall": 0.6809,
+        "f1": 0.4604,
+        "roc_auc": 0.7865,
+        "pr_auc": 0.5558,
+        "brier_score": 0.1034,
+        "log_loss": 0.3567,
+        "ece": 0.0546,
+        "mean_predicted_prob": 0.151,
+        "confusion_matrix": [
+          [
+            187,
+            60
+          ],
+          [
+            15,
+            32
+          ]
+        ]
+      },
+      "subgroup_fairness_uncalibrated_p050": {
+        "gender_fairness": {
+          "Female": {
+            "sample_size_N": 116,
+            "actual_attritions": 16,
+            "actual_base_rate": 0.1379,
+            "predicted_positives": 38,
+            "selection_rate": 0.3276,
+            "true_positives": 11,
+            "false_positives": 27,
+            "true_negatives": 73,
+            "false_negatives": 5,
+            "false_positive_rate": 0.27,
+            "false_negative_rate": 0.3125,
+            "precision": 0.2895,
+            "recall": 0.6875
+          },
+          "Male": {
+            "sample_size_N": 178,
+            "actual_attritions": 31,
+            "actual_base_rate": 0.1742,
+            "predicted_positives": 45,
+            "selection_rate": 0.2528,
+            "true_positives": 18,
+            "false_positives": 27,
+            "true_negatives": 120,
+            "false_negatives": 13,
+            "false_positive_rate": 0.1837,
+            "false_negative_rate": 0.4194,
+            "precision": 0.4,
+            "recall": 0.5806
+          }
+        },
+        "age_adea_fairness": {
+          "Under 40": {
+            "sample_size_N": 193,
+            "actual_attritions": 31,
+            "actual_base_rate": 0.1606,
+            "predicted_positives": 63,
+            "selection_rate": 0.3264,
+            "true_positives": 21,
+            "false_positives": 42,
+            "true_negatives": 120,
+            "false_negatives": 10,
+            "false_positive_rate": 0.2593,
+            "false_negative_rate": 0.3226,
+            "precision": 0.3333,
+            "recall": 0.6774
+          },
+          "40 and Over": {
+            "sample_size_N": 101,
+            "actual_attritions": 16,
+            "actual_base_rate": 0.1584,
+            "predicted_positives": 20,
+            "selection_rate": 0.198,
+            "true_positives": 8,
+            "false_positives": 12,
+            "true_negatives": 73,
+            "false_negatives": 8,
+            "false_positive_rate": 0.1412,
+            "false_negative_rate": 0.5,
+            "precision": 0.4,
+            "recall": 0.5
+          }
+        }
+      },
+      "subgroup_fairness_calibrated_p016": {
+        "gender_fairness": {
+          "Female": {
+            "sample_size_N": 116,
+            "actual_attritions": 16,
+            "actual_base_rate": 0.1379,
+            "predicted_positives": 42,
+            "selection_rate": 0.3621,
+            "true_positives": 11,
+            "false_positives": 31,
+            "true_negatives": 69,
+            "false_negatives": 5,
+            "false_positive_rate": 0.31,
+            "false_negative_rate": 0.3125,
+            "precision": 0.2619,
+            "recall": 0.6875
+          },
+          "Male": {
+            "sample_size_N": 178,
+            "actual_attritions": 31,
+            "actual_base_rate": 0.1742,
+            "predicted_positives": 50,
+            "selection_rate": 0.2809,
+            "true_positives": 21,
+            "false_positives": 29,
+            "true_negatives": 118,
+            "false_negatives": 10,
+            "false_positive_rate": 0.1973,
+            "false_negative_rate": 0.3226,
+            "precision": 0.42,
+            "recall": 0.6774
+          }
+        },
+        "age_adea_fairness": {
+          "Under 40": {
+            "sample_size_N": 193,
+            "actual_attritions": 31,
+            "actual_base_rate": 0.1606,
+            "predicted_positives": 72,
+            "selection_rate": 0.3731,
+            "true_positives": 24,
+            "false_positives": 48,
+            "true_negatives": 114,
+            "false_negatives": 7,
+            "false_positive_rate": 0.2963,
+            "false_negative_rate": 0.2258,
+            "precision": 0.3333,
+            "recall": 0.7742
+          },
+          "40 and Over": {
+            "sample_size_N": 101,
+            "actual_attritions": 16,
+            "actual_base_rate": 0.1584,
+            "predicted_positives": 20,
+            "selection_rate": 0.198,
+            "true_positives": 8,
+            "false_positives": 12,
+            "true_negatives": 73,
+            "false_negatives": 8,
+            "false_positive_rate": 0.1412,
+            "false_negative_rate": 0.5,
+            "precision": 0.4,
+            "recall": 0.5
+          }
+        }
+      }
+    }
+  },
+  "proxy_absorption_summary": {
+    "age_coefficient_model_a": -0.2673,
+    "total_working_years_model_a": -0.6677,
+    "total_working_years_model_b": -0.8735,
+    "absorbed_coefficient_delta": -0.2058,
+    "absorption_ratio_pct": 77.0,
+    "correlation_age_total_working_years": 0.68
+  },
+  "calibration_comparison_benchmark": {
+    "evaluation_protocol": "Cross-validation fit strictly within 5 training folds (zero test leakage)",
+    "model_a_age_included": {
+      "training_oof": {
+        "uncalibrated": {
+          "brier_score": 0.1552,
+          "ece": 0.1991,
+          "log_loss": 0.4708,
+          "roc_auc": 0.8303,
+          "pr_auc": 0.6118,
+          "mean_predicted_prob": 0.3607
+        },
+        "platt_sigmoid": {
+          "brier_score": 0.0962,
+          "ece": 0.0439,
+          "log_loss": 0.3279,
+          "roc_auc": 0.8296,
+          "pr_auc": 0.6099,
+          "mean_predicted_prob": 0.1628
+        },
+        "isotonic": {
+          "brier_score": 0.0924,
+          "ece": 0.0223,
+          "log_loss": 0.3473,
+          "roc_auc": 0.8233,
+          "pr_auc": 0.6062,
+          "mean_predicted_prob": 0.1647
+        }
+      },
+      "held_out_test": {
+        "uncalibrated": {
+          "brier_score": 0.1598,
+          "ece": 0.189,
+          "log_loss": 0.4874,
+          "roc_auc": 0.7793,
+          "pr_auc": 0.5326,
+          "mean_predicted_prob": 0.3463
+        },
+        "platt_sigmoid": {
+          "brier_score": 0.1051,
+          "ece": 0.0438,
+          "log_loss": 0.361,
+          "roc_auc": 0.7795,
+          "pr_auc": 0.5346,
+          "mean_predicted_prob": 0.15
+        },
+        "isotonic": {
+          "brier_score": 0.1065,
+          "ece": 0.0579,
+          "log_loss": 0.3608,
+          "roc_auc": 0.7884,
+          "pr_auc": 0.5398,
+          "mean_predicted_prob": 0.145
+        }
+      }
+    },
+    "model_b_age_excluded_RECOMMENDED": {
+      "training_oof": {
+        "uncalibrated": {
+          "brier_score": 0.1576,
+          "ece": 0.2011,
+          "log_loss": 0.4758,
+          "roc_auc": 0.8277,
+          "pr_auc": 0.6014,
+          "mean_predicted_prob": 0.3626
+        },
+        "platt_sigmoid": {
+          "brier_score": 0.0976,
+          "ece": 0.0345,
+          "log_loss": 0.3306,
+          "roc_auc": 0.8263,
+          "pr_auc": 0.5996,
+          "mean_predicted_prob": 0.1627
+        },
+        "isotonic": {
+          "brier_score": 0.0948,
+          "ece": 0.0225,
+          "log_loss": 0.3523,
+          "roc_auc": 0.821,
+          "pr_auc": 0.5951,
+          "mean_predicted_prob": 0.1637
+        }
+      },
+      "held_out_test": {
+        "uncalibrated": {
+          "brier_score": 0.1596,
+          "ece": 0.1935,
+          "log_loss": 0.4871,
+          "roc_auc": 0.7865,
+          "pr_auc": 0.5596,
+          "mean_predicted_prob": 0.3493
+        },
+        "platt_sigmoid": {
+          "brier_score": 0.1034,
+          "ece": 0.0546,
+          "log_loss": 0.3567,
+          "roc_auc": 0.7865,
+          "pr_auc": 0.5558,
+          "mean_predicted_prob": 0.151
+        },
+        "isotonic": {
+          "brier_score": 0.1041,
+          "ece": 0.0441,
+          "log_loss": 0.463,
+          "roc_auc": 0.7925,
+          "pr_auc": 0.5528,
+          "mean_predicted_prob": 0.1464
+        }
       }
     }
   }

@@ -1,0 +1,6 @@
+metric,uncalibrated_ensemble_50_50,platt_calibrated_ensemble,difference
+Brier Score (lower is better),0.0943,0.089,-0.0052
+Expected Calibration Error (ECE),0.0428,0.0193,-0.0235
+Log Loss,0.3238,0.3073,-0.0166
+PR-AUC,0.6539,0.6529,-0.001
+ROC-AUC,0.8372,0.8363,-0.0009

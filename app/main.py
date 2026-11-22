@@ -1,32 +1,51 @@
 """
 ================================================================================
-RetainIQ – AI-Powered Employee Attrition Prediction & Retention Intelligence
-Streamlit Dashboard Application
+RetainIQ: Production Retention Intelligence & Risk Governance Dashboard
 ================================================================================
-Design Principles:
-- Clean light theme with white backgrounds and navy blue accents
-- Simple, fixed sidebar navigation (Overview, Directory, Risk Analysis, Insights)
-- Non-technical HR terminology (Flight Risk, High/Medium/Low, Actionable Drivers)
-- Consistent KPI cards and responsive Plotly visualizations
-- 100% connected to verified dataset values (no fabricated metrics)
+Day 4: Dashboard Audit, UI Refinement, and End-to-End Validation
+================================================================================
+Primary Model:
+- Calibrated Age-Excluded Logistic Regression (Platt Scaling CV=5)
+- Artifact: models/calibrated_model_day2_age_excluded.pkl
+- Explainer: CalibratedAgeExcludedExplainer (SHAP in Calibrated Probability Space)
+
+Design:
+- Clean, professional light theme with crisp white cards and navy blue accents.
+- Fixed 4-page sidebar navigation: Overview, Directory, Risk Analysis, Insights.
+- Strict Responsible AI standards:
+  • Clearly labeled as an educational & research decision-support prototype.
+  • Risk scores are statistical estimates, not deterministic facts.
+  • Authorizes only voluntary supportive retention interventions.
+  • Strict zero tolerance for adverse employment actions (no firing, layoffs, PIPs).
+  • Explicit prominent disclosure of observed age-group performance disparity.
+- Distinguishes historical turnover baseline from model-predicted flight risk.
 ================================================================================
 """
 
 import sys
 from pathlib import Path
+from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-# Add project root to sys.path for modular imports
+# Configure project paths
 project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
 
 from src.data import load_hr_data, calculate_overview_kpis, get_department_summary, get_job_role_summary
-from src.model import generate_employee_risk_scores, explain_employee_risk
+from src.model import (
+    generate_employee_risk_scores,
+    explain_employee_risk,
+    get_primary_calibrated_model,
+    prepare_calibrated_features,
+    PRIMARY_MODEL_FILENAME
+)
+from src.explainability import CalibratedAgeExcludedExplainer, clean_feature_name
+from src.features import DEFAULT_DROP_COLS, prepare_features_and_target
 
 # -----------------------------------------------------------------------------
 # Streamlit Page Configuration
@@ -39,7 +58,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# Design System & Custom CSS Styling
+# Design System & Professional Light Theme (Navy Accents)
 # -----------------------------------------------------------------------------
 NAVY_PRIMARY = "#1b365d"
 NAVY_DARK = "#0f233d"
@@ -56,75 +75,88 @@ RISK_LOW_COLOR = "#16a34a"
 
 st.markdown(f"""
 <style>
-    /* Global Background & Typography */
+    /* Global Application Theme */
     .stApp {{
         background-color: {BG_LIGHT};
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         color: {TEXT_DARK};
     }}
     
-    /* Main Container Padding */
     .block-container {{
-        padding-top: 1.8rem;
+        padding-top: 1.25rem;
         padding-bottom: 2.5rem;
-        padding-left: 2.5rem;
-        padding-right: 2.5rem;
+        padding-left: 2.25rem;
+        padding-right: 2.25rem;
         max-width: 1400px;
     }}
     
-    /* Page Header */
+    /* Headers & Typography */
     .page-title {{
         font-size: 1.85rem;
         font-weight: 700;
         color: {NAVY_PRIMARY};
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.2rem;
         letter-spacing: -0.02em;
     }}
     
     .page-subtitle {{
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         color: {TEXT_MUTED};
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.15rem;
         line-height: 1.4;
+    }}
+    
+    /* Top Prototype Notice Banner */
+    .prototype-banner {{
+        background: #ffffff;
+        border: 1px solid #bfdbfe;
+        border-left: 5px solid {NAVY_PRIMARY};
+        border-radius: 8px;
+        padding: 0.85rem 1.15rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.86rem;
+        color: #1e3a8a;
+        line-height: 1.45;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
     }}
     
     /* Uniform KPI Cards */
     .kpi-card {{
         background: {CARD_BG};
         border: 1px solid {BORDER_COLOR};
-        border-radius: 10px;
-        padding: 1.25rem 1.2rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        border-radius: 8px;
+        padding: 1.15rem 1.15rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
         margin-bottom: 1rem;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
     }}
     .kpi-card:hover {{
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06);
     }}
     .kpi-title {{
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: {TEXT_MUTED};
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.35rem;
     }}
     .kpi-value {{
-        font-size: 1.9rem;
+        font-size: 1.85rem;
         font-weight: 700;
         color: {NAVY_PRIMARY};
         line-height: 1.1;
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.3rem;
     }}
     .kpi-subtitle {{
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         color: {TEXT_MUTED};
     }}
     
     /* Risk Badges */
     .badge {{
         display: inline-block;
-        padding: 0.25rem 0.65rem;
+        padding: 0.22rem 0.65rem;
         border-radius: 9999px;
         font-size: 0.75rem;
         font-weight: 700;
@@ -147,102 +179,141 @@ st.markdown(f"""
         border: 1px solid #86efac;
     }}
     
-    /* Section Content Card */
+    /* Content Boxes */
     .content-box {{
         background: {CARD_BG};
         border: 1px solid {BORDER_COLOR};
-        border-radius: 10px;
-        padding: 1.5rem;
+        border-radius: 8px;
+        padding: 1.35rem;
         margin-bottom: 1.25rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     }}
     
-    /* Informational Banners */
-    .info-alert {{
-        background-color: #eff6ff;
-        border-left: 4px solid {NAVY_PRIMARY};
-        padding: 0.9rem 1.1rem;
-        border-radius: 6px;
+    /* Disparity & Fairness Alerts */
+    .disparity-box {{
+        background-color: #fffbeb;
+        border: 1px solid #fde68a;
+        border-left: 5px solid #d97706;
+        border-radius: 8px;
+        padding: 0.95rem 1.15rem;
         margin-bottom: 1.25rem;
-        font-size: 0.9rem;
-        color: #1e3a8a;
+        font-size: 0.87rem;
+        color: #92400e;
+        line-height: 1.5;
     }}
     
-    /* Factor Item Card */
+    .guardrail-box {{
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem 1.15rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.86rem;
+        line-height: 1.5;
+    }}
+    
     .factor-item {{
         background: #f8fafc;
         border-left: 3px solid {NAVY_PRIMARY};
-        padding: 0.75rem 1rem;
+        padding: 0.7rem 0.95rem;
         border-radius: 4px;
-        margin-bottom: 0.65rem;
+        margin-bottom: 0.55rem;
     }}
-    .factor-item.critical {{
+    .factor-item.amplifier {{
         border-left-color: {RISK_HIGH_COLOR};
         background: #fff5f5;
     }}
+    .factor-item.anchor {{
+        border-left-color: {RISK_LOW_COLOR};
+        background: #f0fdf4;
+    }}
     
-    /* Action Step Card */
     .action-item {{
         background: #f0fdf4;
         border-left: 3px solid #16a34a;
-        padding: 0.75rem 1rem;
+        padding: 0.7rem 0.95rem;
         border-radius: 4px;
-        margin-bottom: 0.65rem;
-        font-size: 0.88rem;
+        margin-bottom: 0.55rem;
+        font-size: 0.86rem;
         color: #14532d;
     }}
     
-    /* Custom Sidebar Header */
     .sidebar-brand {{
         font-size: 1.45rem;
         font-weight: 800;
         color: {NAVY_PRIMARY};
         letter-spacing: -0.03em;
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.15rem;
     }}
     .sidebar-tagline {{
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         color: {TEXT_MUTED};
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
     }}
 </style>
 """, unsafe_allow_html=True)
 
 
 # -----------------------------------------------------------------------------
-# Data & Predictions Ingestion
+# Data & Model Ingestion (Production Age-Excluded Calibrated Pipeline)
 # -----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
-def get_app_data():
+def get_app_data() -> pd.DataFrame:
     raw_df = load_hr_data()
     scored_df = generate_employee_risk_scores(raw_df)
     return scored_df
 
+
+@st.cache_resource(show_spinner=False)
+def get_calibrated_explainer() -> CalibratedAgeExcludedExplainer:
+    """Initialize cached SHAP explainer for calibrated Age-Excluded predictions."""
+    model = get_primary_calibrated_model()
+    raw_df = load_hr_data()
+    X_B, _ = prepare_calibrated_features(raw_df)
+    explainer = CalibratedAgeExcludedExplainer(model=model, background_data=X_B)
+    return explainer
+
+
+@st.cache_data(show_spinner=False)
+def get_cached_employee_explanation(display_id: str, _explainer: CalibratedAgeExcludedExplainer, _data: pd.DataFrame) -> Dict[str, Any]:
+    """Retrieve or compute cached instance-level SHAP attributions in probability space."""
+    emp_data = _data[_data["Employee_Display_ID"] == display_id]
+    X_clean, _ = prepare_calibrated_features(emp_data)
+    return _explainer.explain_instance(X_clean.iloc[[0]], top_k=4)
+
+
 try:
     data = get_app_data()
+    explainer = get_calibrated_explainer()
 except Exception as e:
-    st.error(f"Error initializing data: {e}")
+    st.error(f"Platform Initialization Error: {e}")
     st.stop()
 
 
 # -----------------------------------------------------------------------------
-# Fixed, Simple Sidebar Navigation
+# Fixed Sidebar Navigation & Model Governance Status
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown('<div class="sidebar-brand">🏢 RetainIQ</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-tagline">Retention Intelligence Platform</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-tagline">Retention Intelligence & Risk Governance<br><span style="color:#2563eb; font-weight:600;">Educational Prototype v4.0</span></div>', unsafe_allow_html=True)
     
-    # 4 Main Pages Navigation
+    # 4 Main Streamlit Pages
     page = st.radio(
         label="Navigate",
         options=["Overview", "Employee Directory", "Risk Analysis", "Insights"],
+        format_func=lambda x: {
+            "Overview": "🏢 Overview",
+            "Employee Directory": "👥 Employee Directory",
+            "Risk Analysis": "📊 Risk Analysis & Fairness",
+            "Insights": "💡 Strategic Insights"
+        }.get(x, x),
         index=0,
         label_visibility="collapsed"
     )
     
     st.divider()
     
-    # Simple Global Department Filter
+    # Global Department Filter
     st.markdown("**Department Filter**")
     dept_options = ["All Departments"] + sorted(data["Department"].unique().tolist())
     selected_dept = st.selectbox(
@@ -252,34 +323,51 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     
-    # Apply department filter
     if selected_dept != "All Departments":
         df_filtered = data[data["Department"] == selected_dept].copy()
     else:
         df_filtered = data.copy()
         
+    st.caption(f"Active filter: **{len(df_filtered):,}** employees")
     st.divider()
     
-    # Clean non-technical data verification badge
-    st.caption("ℹ️ **Platform Status**")
-    st.caption(f"• **Records**: {len(data):,} verified employee files")
-    st.caption("• **Dataset**: IBM Enterprise HR Benchmark")
-    st.caption("• **Model Status**: Calibrated & Active")
+    # Active Production Engine Governance Status
+    st.markdown("**Active Production Engine**")
+    st.caption(f"• **Artifact**: `{PRIMARY_MODEL_FILENAME}`")
+    st.caption("• **Model Class**: Calibrated Logistic Regression")
+    st.caption("• **Calibration**: Platt Scaling (Sigmoid, CV=5 on Train)")
+    st.caption("• **Policy**: Age-Excluded Feature Set (32 features)")
+    st.caption("• **Status**: Primary Production Model (Retained)")
+    
+    st.divider()
+    
+    # Experimental Research Status & Isolation
+    st.markdown("**Experimental Research Status**")
+    st.caption("• **Artifact**: `calibrated_ensemble_50_50.pkl`")
+    st.caption("• **Designation**: Research-Only (Excluded from Live Scoring)")
+    st.caption("• **Reason**: 75.0% False Negative Rate in 40+ workers & overlapping test CIs.")
+    
+    st.divider()
+    
+    # Responsible AI Policy Summary
+    st.markdown("**Responsible AI Policy**")
+    st.caption("✓ **Authorized**: Voluntary supportive dialogues, stay interviews, workload balancing.")
+    st.caption("✗ **Prohibited**: Firing, layoffs, disciplinary action, PIPs, compensation denial.")
 
 
 # -----------------------------------------------------------------------------
 # Plotly Minimalist Styling Helper
 # -----------------------------------------------------------------------------
-def format_plotly_chart(fig: go.Figure, height: int = 340) -> go.Figure:
-    """Apply consistent clean, uncluttered, light-theme styling to Plotly figures."""
+def format_plotly_chart(fig: go.Figure, height: int = 320) -> go.Figure:
+    """Apply clean minimalist light theme to Plotly charts."""
     fig.update_layout(
         height=height,
-        margin=dict(l=20, r=20, t=40, b=20),
+        margin=dict(l=20, r=20, t=35, b=20),
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
         font=dict(family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif", color=TEXT_DARK, size=11),
-        title_font=dict(size=13, color=NAVY_PRIMARY),
-        hoverlabel=dict(bgcolor="#ffffff", font_size=11, font_family="sans-serif"),
+        title_font=dict(size=12, color=NAVY_PRIMARY),
+        hoverlabel=dict(bgcolor="#ffffff", font_size=11),
         legend=dict(
             orientation="h",
             yanchor="bottom",
@@ -298,74 +386,88 @@ def format_plotly_chart(fig: go.Figure, height: int = 340) -> go.Figure:
 # PAGE 1: OVERVIEW
 # =============================================================================
 if page == "Overview":
-    st.markdown('<div class="page-title">Workforce Retention Overview</div>', unsafe_allow_html=True)
-    dept_context = f" for **{selected_dept}**" if selected_dept != "All Departments" else " across the entire company"
-    st.markdown(f'<div class="page-subtitle">Executive health summary and turnover risk profile{dept_context}.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Workforce Retention Intelligence Overview</div>', unsafe_allow_html=True)
+    dept_suffix = f" for **{selected_dept}**" if selected_dept != "All Departments" else " across the organization"
+    st.markdown(f'<div class="page-subtitle">Executive workforce summary, calibrated flight risk profile, and departmental breakdown{dept_suffix}.</div>', unsafe_allow_html=True)
+    
+    # Educational Prototype & Governance Notice Banner
+    st.markdown("""
+    <div class="prototype-banner">
+        <strong>⚠️ Educational & Research Decision-Support Prototype:</strong> RetainIQ is designed strictly for research, educational, and voluntary retention planning. 
+        All live predictions are generated exclusively by the retained primary model: <strong>Calibrated Age-Excluded Logistic Regression</strong> (<code>calibrated_model_day2_age_excluded.pkl</code>), chosen for its balanced recall (68.1%) and demographic parity across age and gender. 
+        Candidate architectures (including the experimental 50/50 ensemble <code>calibrated_ensemble_50_50.pkl</code>) are strictly designated as <strong>research-only artifacts</strong> and excluded from live dashboard scoring.
+        <br/><br/>
+        <strong>Statistical Estimates, Not Facts:</strong> Model risk scores represent statistical probabilities based on historical workforce patterns; they are <strong>estimates, not factual determinations</strong> of employee intentions or performance.
+        <br/><br/>
+        <strong>Strict Zero-Adverse-Action Policy:</strong> Risk scores are authorized strictly for <strong>voluntary, supportive retention workflows</strong> (e.g., stay interviews, workload rebalancing, career pathing). RetainIQ predictions must <strong>never</strong> be used for adverse employment actions including terminations, layoffs, disciplinary action, PIPs, performance rating downgrades, or compensation decisions.
+    </div>
+    """, unsafe_allow_html=True)
     
     # 1. Uniform KPI Cards Row
     total_count = len(df_filtered)
-    high_risk_count = (df_filtered["Risk_Level"] == "High").sum()
+    high_risk_count = int((df_filtered["Risk_Level"] == "High").sum())
     high_risk_pct = (high_risk_count / total_count * 100) if total_count > 0 else 0.0
-    hist_turnover_pct = ((df_filtered["Attrition"] == "Yes").sum() / total_count * 100) if total_count > 0 else 0.0
     
-    # Cost at risk: Sum of replacement cost for High-Risk individuals
-    total_cost_at_risk = df_filtered[df_filtered["Risk_Level"] == "High"]["Replacement_Cost_At_Risk"].sum()
-    cost_display = f"${total_cost_at_risk / 1e6:.1f}M" if total_cost_at_risk >= 1e6 else f"${total_cost_at_risk / 1e3:.0f}K"
+    med_risk_count = int((df_filtered["Risk_Level"] == "Medium").sum())
+    med_risk_pct = (med_risk_count / total_count * 100) if total_count > 0 else 0.0
+    
+    past_attritions = int((df_filtered["Attrition"] == "Yes").sum())
+    hist_turnover_pct = (past_attritions / total_count * 100) if total_count > 0 else 0.0
+    
+    # Estimated benchmark replacement cost exposure (benchmark: 1.5x annual base = MonthlyIncome * 18)
+    total_cost_exposure = df_filtered[df_filtered["Risk_Level"] == "High"]["Replacement_Cost_At_Risk"].sum()
+    cost_display = f"${total_cost_exposure / 1e6:.1f}M" if total_cost_exposure >= 1e6 else f"${total_cost_exposure / 1e3:.0f}K"
     
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-title">Active Workforce</div>
+            <div class="kpi-title">Active Evaluated Workforce</div>
             <div class="kpi-value">{total_count:,}</div>
-            <div class="kpi-subtitle">Total evaluated staff</div>
+            <div class="kpi-subtitle">Total active employee records</div>
         </div>
         """, unsafe_allow_html=True)
-        
     with c2:
         st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-title">Historical Turnover</div>
+            <div class="kpi-title">Historical Turnover Baseline</div>
             <div class="kpi-value">{hist_turnover_pct:.1f}%</div>
-            <div class="kpi-subtitle">{(df_filtered['Attrition'] == 'Yes').sum():,} past departures</div>
+            <div class="kpi-subtitle">{past_attritions:,} historical departures</div>
         </div>
         """, unsafe_allow_html=True)
-        
     with c3:
         st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-title">High Flight Risk</div>
+            <div class="kpi-title">High Flight Risk (≥25%)</div>
             <div class="kpi-value" style="color: {RISK_HIGH_COLOR};">{high_risk_count:,}</div>
-            <div class="kpi-subtitle">{high_risk_pct:.1f}% of current staff</div>
+            <div class="kpi-subtitle">{high_risk_pct:.1f}% of current cohort</div>
         </div>
         """, unsafe_allow_html=True)
-        
     with c4:
         st.markdown(f"""
         <div class="kpi-card">
             <div class="kpi-title">Cost Exposure at Risk</div>
             <div class="kpi-value">{cost_display}</div>
-            <div class="kpi-subtitle">Estimated turnover impact</div>
+            <div class="kpi-subtitle">Illustrative benchmark assumption (1.5x salary)</div>
         </div>
         """, unsafe_allow_html=True)
         
-    # 2. Executive Alert Banner
+    # 2. Key Alert Notice
     if high_risk_count > 0:
         st.markdown(f"""
-        <div class="info-alert">
-            <strong>Key Priority Alert:</strong> <strong>{high_risk_count} employees ({high_risk_pct:.1f}%)</strong> currently demonstrate elevated turnover probability. 
-            Early intervention in workload balance and compensation alignment can protect up to <strong>{cost_display}</strong> in replacement and hiring costs.
+        <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-left: 5px solid {RISK_HIGH_COLOR}; padding: 0.85rem 1.15rem; border-radius: 6px; margin-bottom: 1.25rem; font-size: 0.88rem; color: #991b1b;">
+            <strong>Retention Focus:</strong> <strong>{high_risk_count} employees ({high_risk_pct:.1f}%)</strong> demonstrate an acute predicted flight risk (calibrated probability ≥ 25.0%). 
+            An additional <strong>{med_risk_count} employees ({med_risk_pct:.1f}%)</strong> fall into the elevated alert bracket (probability 16.0%–25.0%). 
+            Early supportive touchpoints in workload balancing and career pathing can proactively address turnover drivers.
         </div>
         """, unsafe_allow_html=True)
 
-    # 3. Two Focused Visualizations
-    col_chart1, col_chart2 = st.columns(2)
-    
-    with col_chart1:
+    # 3. Two Focused Minimalist Charts
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
-        st.markdown("**Flight Risk Distribution by Department**")
+        st.markdown("**Model-Predicted Risk Tier Distribution by Department**")
         
-        # Risk breakdown by Department
         dept_risk = data.groupby(["Department", "Risk_Level"]).size().unstack(fill_value=0).reset_index()
         for col in ["Low", "Medium", "High"]:
             if col not in dept_risk.columns:
@@ -377,67 +479,73 @@ if page == "Overview":
             y=["Low", "Medium", "High"],
             color_discrete_map={"Low": RISK_LOW_COLOR, "Medium": RISK_MED_COLOR, "High": RISK_HIGH_COLOR},
             barmode="stack",
-            height=320
+            height=300
         )
         fig_dept = format_plotly_chart(fig_dept)
-        fig_dept.update_layout(yaxis_title="Employee Count", xaxis_title="")
-        st.plotly_chart(fig_dept, use_container_width=True)
+        fig_dept.update_layout(yaxis_title="Employees", xaxis_title="")
+        st.plotly_chart(fig_dept, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
         
-    with col_chart2:
+    with col_c2:
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
-        st.markdown("**Turnover Risk by Workload & Overtime**")
+        st.markdown("**Historical Turnover Rate vs. Model-Predicted High-Risk Share**")
         
-        ot_summary = df_filtered.groupby("OverTime").agg(
-            Total=("EmployeeNumber", "count"),
-            HighRisk=("Risk_Level", lambda x: (x == "High").sum()),
-            HistoricalAttrition=("Attrition", lambda x: (x == "Yes").mean() * 100)
+        dept_comp = data.groupby("Department").agg(
+            Headcount=("EmployeeNumber", "count"),
+            Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100),
+            Predicted_High_Risk=("Risk_Level", lambda x: (x == "High").mean() * 100)
         ).reset_index()
-        ot_summary["OverTime_Label"] = ot_summary["OverTime"].map({"Yes": "Works Overtime", "No": "Standard Hours"})
-        ot_summary["HighRiskPct"] = (ot_summary["HighRisk"] / ot_summary["Total"] * 100).round(1)
         
-        fig_ot = px.bar(
-            ot_summary,
-            x="OverTime_Label",
-            y="HighRiskPct",
-            color="OverTime_Label",
-            color_discrete_map={"Works Overtime": RISK_HIGH_COLOR, "Standard Hours": NAVY_PRIMARY},
-            text=ot_summary["HighRiskPct"].apply(lambda v: f"{v:.1f}%"),
-            height=320
-        )
-        fig_ot = format_plotly_chart(fig_ot)
-        fig_ot.update_layout(showlegend=False, yaxis_title="High Risk Share (%)", xaxis_title="")
-        fig_ot.update_traces(textposition="outside")
-        st.plotly_chart(fig_ot, use_container_width=True)
+        fig_comp = go.Figure()
+        fig_comp.add_trace(go.Bar(
+            name="Historical Turnover %",
+            x=dept_comp["Department"],
+            y=dept_comp["Historical_Rate"],
+            marker_color=NAVY_PRIMARY
+        ))
+        fig_comp.add_trace(go.Bar(
+            name="Current High-Risk Share %",
+            x=dept_comp["Department"],
+            y=dept_comp["Predicted_High_Risk"],
+            marker_color=RISK_HIGH_COLOR
+        ))
+        fig_comp = format_plotly_chart(fig_comp)
+        fig_comp.update_layout(barmode="group", yaxis_title="Percentage (%)", xaxis_title="")
+        st.plotly_chart(fig_comp, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
         
     # 4. Department Summary Table
     st.markdown('<div class="content-box">', unsafe_allow_html=True)
-    st.markdown("**Departmental Turnover & Risk Summary**")
-    dept_table = data.groupby("Department").agg(
+    st.markdown("**Departmental Workforce & Retention Breakdown**")
+    
+    dept_tbl = data.groupby("Department").agg(
         Total_Headcount=("EmployeeNumber", "count"),
-        High_Risk_Staff=("Risk_Level", lambda x: (x == "High").sum()),
-        Past_Attrition=("Attrition", lambda x: (x == "Yes").sum()),
+        High_Risk_Count=("Risk_Level", lambda x: (x == "High").sum()),
+        Elevated_Alert_Count=("Risk_Level", lambda x: (x == "Medium").sum()),
+        Past_Attrition_Count=("Attrition", lambda x: (x == "Yes").sum()),
         Avg_Monthly_Salary=("MonthlyIncome", "mean"),
         Avg_Tenure_Years=("YearsAtCompany", "mean")
     ).reset_index()
     
-    dept_table["Risk_Share_%"] = (dept_table["High_Risk_Staff"] / dept_table["Total_Headcount"] * 100).round(1)
-    dept_table["Past_Attrition_%"] = (dept_table["Past_Attrition"] / dept_table["Total_Headcount"] * 100).round(1)
-    dept_table["Avg_Monthly_Salary"] = dept_table["Avg_Monthly_Salary"].apply(lambda v: f"${int(v):,}")
-    dept_table["Avg_Tenure_Years"] = dept_table["Avg_Tenure_Years"].round(1).astype(str) + " yrs"
+    dept_tbl["High_Risk_%"] = (dept_tbl["High_Risk_Count"] / dept_tbl["Total_Headcount"] * 100).round(1)
+    dept_tbl["Past_Turnover_%"] = (dept_tbl["Past_Attrition_Count"] / dept_tbl["Total_Headcount"] * 100).round(1)
+    dept_tbl["Avg_Monthly_Salary"] = dept_tbl["Avg_Monthly_Salary"].apply(lambda v: f"${int(v):,}")
+    dept_tbl["Avg_Tenure_Years"] = dept_tbl["Avg_Tenure_Years"].round(1).astype(str) + " yrs"
     
-    dept_table_display = dept_table[[
-        "Department", "Total_Headcount", "High_Risk_Staff", "Risk_Share_%", "Past_Attrition_%", "Avg_Monthly_Salary", "Avg_Tenure_Years"
+    disp_tbl = dept_tbl[[
+        "Department", "Total_Headcount", "High_Risk_Count", "High_Risk_%", "Elevated_Alert_Count",
+        "Past_Attrition_Count", "Past_Turnover_%", "Avg_Monthly_Salary", "Avg_Tenure_Years"
     ]].rename(columns={
         "Total_Headcount": "Headcount",
-        "High_Risk_Staff": "High Risk Staff",
-        "Risk_Share_%": "High Risk %",
-        "Past_Attrition_%": "Historical Turnover %",
+        "High_Risk_Count": "High Risk Staff",
+        "High_Risk_%": "High Risk %",
+        "Elevated_Alert_Count": "Medium Risk Staff",
+        "Past_Attrition_Count": "Past Departures",
+        "Past_Turnover_%": "Historical Rate %",
         "Avg_Monthly_Salary": "Avg Salary",
         "Avg_Tenure_Years": "Avg Tenure"
     })
-    st.dataframe(dept_table_display, width="stretch", hide_index=True)
+    st.dataframe(disp_tbl, width="stretch", hide_index=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -445,83 +553,95 @@ if page == "Overview":
 # PAGE 2: EMPLOYEE DIRECTORY
 # =============================================================================
 elif page == "Employee Directory":
-    st.markdown('<div class="page-title">Employee Directory & Risk Profiles</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-subtitle">Search, filter, and inspect individual retention profiles and plain-English recommendations.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Employee Directory & Retention Intelligence</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-subtitle">Search, filter, and inspect calibrated risk profiles with model-agnostic factor attributions.</div>', unsafe_allow_html=True)
     
-    # 1. Search & Filter Bar
-    filter_col1, filter_col2, filter_col3 = st.columns([2, 1, 1])
-    with filter_col1:
+    # Responsible AI Guidance Note
+    st.markdown("""
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.15rem; font-size: 0.85rem; color: #334155;">
+        <strong>Individual Risk Interpretation Guide:</strong> Flight risk scores represent statistical likelihood estimates, not employee loyalty or intent. 
+        All interventions must be <strong>voluntary, supportive touchpoints</strong> (e.g., informal stay interviews, mentor assignment, workload reviews). 
+        Strictly prohibited for punitive actions, performance reviews, or termination discussions.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 1. Search and 3 Independent Filters
+    fc1, fc2, fc3, fc4 = st.columns([1.8, 1, 1, 1])
+    with fc1:
         search_query = st.text_input(
-            "Search Directory",
-            placeholder="🔍 Search by ID (e.g. EMP-0001), Role, or Department...",
+            "Search",
+            placeholder="🔍 Search by ID (EMP-0001), Role, or Dept...",
             label_visibility="collapsed"
         ).strip().lower()
-        
-    with filter_col2:
-        risk_filter = st.selectbox(
-            "Filter by Risk Level",
-            options=["All Risk Levels", "High", "Medium", "Low"],
+    with fc2:
+        dept_f = st.selectbox(
+            "Filter Department",
+            options=["All Departments"] + sorted(data["Department"].unique().tolist()),
+            index=0,
+            label_visibility="collapsed"
+        )
+    with fc3:
+        role_f = st.selectbox(
+            "Filter Role",
+            options=["All Job Roles"] + sorted(data["JobRole"].unique().tolist()),
+            index=0,
+            label_visibility="collapsed"
+        )
+    with fc4:
+        risk_f = st.selectbox(
+            "Filter Risk",
+            options=["All Risk Tiers", "High (≥25%)", "Medium (16–25%)", "Low (<16%)"],
             index=0,
             label_visibility="collapsed"
         )
         
-    with filter_col3:
-        sort_by = st.selectbox(
-            "Sort by",
-            options=["Highest Flight Risk First", "Lowest Flight Risk First", "Employee ID"],
-            index=0,
-            label_visibility="collapsed"
-        )
-        
-    # Apply filters
-    roster_df = df_filtered.copy()
+    roster_df = data.copy()
     if search_query:
         roster_df = roster_df[
             roster_df["Employee_Display_ID"].str.lower().str.contains(search_query) |
             roster_df["JobRole"].str.lower().str.contains(search_query) |
             roster_df["Department"].str.lower().str.contains(search_query)
         ]
+    if dept_f != "All Departments":
+        roster_df = roster_df[roster_df["Department"] == dept_f]
+    if role_f != "All Job Roles":
+        roster_df = roster_df[roster_df["JobRole"] == role_f]
+    if risk_f == "High (≥25%)":
+        roster_df = roster_df[roster_df["Risk_Level"] == "High"]
+    elif risk_f == "Medium (16–25%)":
+        roster_df = roster_df[roster_df["Risk_Level"] == "Medium"]
+    elif risk_f == "Low (<16%)":
+        roster_df = roster_df[roster_df["Risk_Level"] == "Low"]
         
-    if risk_filter != "All Risk Levels":
-        roster_df = roster_df[roster_df["Risk_Level"] == risk_filter]
-        
-    if sort_by == "Highest Flight Risk First":
-        roster_df = roster_df.sort_values(by="Flight_Risk_Score", ascending=False)
-    elif sort_by == "Lowest Flight Risk First":
-        roster_df = roster_df.sort_values(by="Flight_Risk_Score", ascending=True)
-    else:
-        roster_df = roster_df.sort_values(by="EmployeeNumber", ascending=True)
-        
-    st.markdown(f"<small style='color: {TEXT_MUTED};'>Showing <strong>{len(roster_df):,}</strong> matching employees</small>", unsafe_allow_html=True)
+    st.markdown(f"<small style='color: {TEXT_MUTED};'>Displaying <strong>{len(roster_df):,}</strong> matching employees</small>", unsafe_allow_html=True)
     
-    # Meaningful Empty State
     if len(roster_df) == 0:
-        st.markdown(f"""
+        st.markdown("""
         <div class="content-box" style="text-align: center; padding: 2.5rem 1rem;">
-            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
-            <div style="font-size: 1.1rem; font-weight: 600; color: {NAVY_PRIMARY};">No employees match your criteria</div>
-            <div style="font-size: 0.9rem; color: {TEXT_MUTED}; margin-top: 0.25rem;">
-                Try adjusting the search query or changing the risk level filter above.
+            <div style="font-size: 1.8rem; margin-bottom: 0.4rem;">🔍</div>
+            <div style="font-size: 1.05rem; font-weight: 600; color: #1b365d;">No matching employee files found</div>
+            <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.25rem;">
+                Try adjusting the search query or clearing one of the dropdown filters above.
             </div>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # Split Layout: Left Table + Right Detailed Profile
-        col_list, col_profile = st.columns([3, 2])
+        # Split Layout: Left Roster + Right Detail
+        col_list, col_detail = st.columns([3, 2.2])
         
         with col_list:
             st.markdown('<div class="content-box">', unsafe_allow_html=True)
-            st.markdown("**Employee Roster**")
+            st.markdown("**Employee Roster (Calibrated Risk Scores)**")
             
-            # Format display table
-            display_roster = roster_df[[
-                "Employee_Display_ID", "JobRole", "Department", "MonthlyIncome", "YearsAtCompany", "OverTime", "Risk_Level", "Flight_Risk_Score"
+            disp_roster = roster_df[[
+                "Employee_Display_ID", "JobRole", "Department", "MonthlyIncome",
+                "YearsAtCompany", "OverTime", "Risk_Level", "Flight_Risk_Score"
             ]].copy()
             
-            display_roster["MonthlyIncome"] = display_roster["MonthlyIncome"].apply(lambda v: f"${int(v):,}")
-            display_roster["YearsAtCompany"] = display_roster["YearsAtCompany"].astype(str) + " yrs"
-            display_roster["Flight_Risk_Score"] = display_roster["Flight_Risk_Score"].astype(str) + "%"
-            display_roster = display_roster.rename(columns={
+            disp_roster["MonthlyIncome"] = disp_roster["MonthlyIncome"].apply(lambda v: f"${int(v):,}")
+            disp_roster["YearsAtCompany"] = disp_roster["YearsAtCompany"].astype(str) + " yrs"
+            disp_roster["Flight_Risk_Score"] = disp_roster["Flight_Risk_Score"].astype(str) + "%"
+            disp_roster = disp_roster.rename(columns={
                 "Employee_Display_ID": "ID",
                 "JobRole": "Role",
                 "Department": "Department",
@@ -529,352 +649,488 @@ elif page == "Employee Directory":
                 "YearsAtCompany": "Tenure",
                 "OverTime": "Overtime",
                 "Risk_Level": "Risk Tier",
-                "Flight_Risk_Score": "Risk Probability"
+                "Flight_Risk_Score": "Calibrated Risk"
             })
-            
-            st.dataframe(display_roster, height=480, width="stretch", hide_index=True)
+            st.dataframe(disp_roster, height=480, width="stretch", hide_index=True)
             st.markdown('</div>', unsafe_allow_html=True)
             
-        with col_profile:
+        with col_detail:
             st.markdown('<div class="content-box">', unsafe_allow_html=True)
-            st.markdown("**Individual Retention Profile**")
+            st.markdown("**Individual Retention Profile & Model Explanation**")
             
-            # Employee selector dropdown
-            emp_options = roster_df["Employee_Display_ID"] + " - " + roster_df["JobRole"]
+            emp_choices = roster_df["Employee_Display_ID"] + " - " + roster_df["JobRole"]
             selected_choice = st.selectbox(
                 "Select Employee to Inspect",
-                options=emp_options.tolist(),
+                options=emp_choices.tolist(),
                 index=0,
                 label_visibility="collapsed"
             )
-            
             selected_id = selected_choice.split(" - ")[0]
             selected_emp = data[data["Employee_Display_ID"] == selected_id].iloc[0]
-            explanation = explain_employee_risk(selected_emp, data)
             
-            # Profile Card Header
-            badge_class = f"badge-{explanation['risk_level'].lower()}"
+            # Extract features and compute cached calibrated explainer output
+            exp_res = get_cached_employee_explanation(selected_id, explainer, data)
+            rule_actions = explain_employee_risk(selected_emp, data)
+            
+            badge_class = f"badge-{selected_emp['Risk_Level'].lower()}"
             st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid {BORDER_COLOR}; padding-bottom: 0.75rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid {BORDER_COLOR}; padding-bottom: 0.65rem; margin-bottom: 0.85rem;">
                 <div>
                     <div style="font-size: 1.25rem; font-weight: 700; color: {NAVY_PRIMARY};">{selected_emp['Employee_Display_ID']}</div>
-                    <div style="font-size: 0.88rem; color: {TEXT_MUTED};">{selected_emp['JobRole']} • {selected_emp['Department']}</div>
+                    <div style="font-size: 0.85rem; color: {TEXT_MUTED};">{selected_emp['JobRole']} • {selected_emp['Department']}</div>
                 </div>
                 <div style="text-align: right;">
-                    <span class="badge {badge_class}">{explanation['risk_level'].upper()} RISK</span>
-                    <div style="font-size: 1.3rem; font-weight: 800; color: {NAVY_PRIMARY}; margin-top: 0.2rem;">{explanation['risk_score']}%</div>
+                    <span class="badge {badge_class}">{selected_emp['Risk_Level'].upper()} RISK</span>
+                    <div style="font-size: 1.35rem; font-weight: 800; color: {NAVY_PRIMARY}; margin-top: 0.2rem;">{selected_emp['Flight_Risk_Score']}%</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
-            # Quick Stats Grid
-            s1, s2, s3 = st.columns(3)
-            with s1:
-                st.caption("Monthly Salary")
+            # Quick Stats
+            qs1, qs2, qs3, qs4 = st.columns(4)
+            with qs1:
+                st.caption("Salary")
                 st.write(f"**${int(selected_emp['MonthlyIncome']):,}**")
-            with s2:
-                st.caption("Company Tenure")
-                st.write(f"**{int(selected_emp['YearsAtCompany'])} Years**")
-            with s3:
-                st.caption("Works Overtime?")
+            with qs2:
+                st.caption("Tenure")
+                st.write(f"**{int(selected_emp['YearsAtCompany'])} yrs**")
+            with qs3:
+                st.caption("Overtime?")
                 st.write(f"**{selected_emp['OverTime']}**")
+            with qs4:
+                st.caption("Satisfaction")
+                st.write(f"**{selected_emp.get('JobSatisfaction_Name', 'N/A')}**")
                 
-            st.markdown("<hr style='margin: 0.8rem 0; border: none; border-top: 1px solid #f1f5f9;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 0.65rem 0; border: none; border-top: 1px solid #f1f5f9;'>", unsafe_allow_html=True)
             
-            # Primary Flight Risk Drivers
-            st.markdown("**Primary Flight Risk Drivers**")
-            for factor in explanation["top_factors"]:
-                critical_class = "critical" if factor["impact"] in ["Critical", "High"] else ""
-                st.markdown(f"""
-                <div class="factor-item {critical_class}">
-                    <div style="font-size: 0.85rem; font-weight: 700; color: {NAVY_PRIMARY};">
-                        {factor['title']} <small style="color: {TEXT_MUTED}; font-weight: normal;">({factor['category']})</small>
+            # Calibrated SHAP Attribution Breakdown
+            st.markdown(f"**Model Attribution (Calibrated Probability Space)**")
+            st.caption(f"Baseline Expected Risk: **{exp_res['base_value_probability']*100:.1f}%** • Model: Calibrated Age-Excluded Engine")
+            
+            # Top Risk Amplifiers
+            if exp_res["top_risk_amplifiers"]:
+                st.markdown("<small style='font-weight:700; color:#991b1b;'>Top Risk Amplifiers (Pushing Probability UP):</small>", unsafe_allow_html=True)
+                for f in exp_res["top_risk_amplifiers"]:
+                    st.markdown(f"""
+                    <div class="factor-item amplifier">
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #991b1b;">
+                            +{f['impact_pct_points']:.1f}% — {f['feature']}
+                        </div>
+                        <div style="font-size: 0.77rem; color: #334155; margin-top: 0.15rem;">
+                            Value: <code>{f['feature_value']}</code>
+                        </div>
                     </div>
-                    <div style="font-size: 0.8rem; color: {TEXT_DARK}; margin-top: 0.2rem; line-height: 1.3;">
-                        {factor['detail']}
+                    """, unsafe_allow_html=True)
+                    
+            # Top Protective Anchors
+            if exp_res["top_protective_anchors"]:
+                st.markdown("<small style='font-weight:700; color:#166534;'>Top Protective Anchors (Pulling Probability DOWN):</small>", unsafe_allow_html=True)
+                for f in exp_res["top_protective_anchors"]:
+                    st.markdown(f"""
+                    <div class="factor-item anchor">
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #166534;">
+                            {f['impact_pct_points']:.1f}% — {f['feature']}
+                        </div>
+                        <div style="font-size: 0.77rem; color: #334155; margin-top: 0.15rem;">
+                            Value: <code>{f['feature_value']}</code>
+                        </div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+                    
+            # Recommended Voluntary Retention Actions
+            st.markdown("<small style='font-weight:700; color:#1b365d; margin-top:0.5rem; display:block;'>Recommended Supportive Interventions:</small>", unsafe_allow_html=True)
+            for act in rule_actions["recommended_actions"]:
+                st.markdown(f'<div class="action-item">✓ {act}</div>', unsafe_allow_html=True)
                 
-            # Recommended Retention Actions
-            st.markdown("**Recommended HR Action Plan**")
-            for action in explanation["recommended_actions"]:
-                st.markdown(f"""
-                <div class="action-item">
-                    ✓ {action}
-                </div>
-                """, unsafe_allow_html=True)
-                
+            st.caption("🔒 *Authorized for voluntary support dialogues only. Never use for disciplinary action or termination.*")
             st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =============================================================================
-# PAGE 3: RISK ANALYSIS
+# PAGE 3: RISK ANALYSIS & FAIRNESS
 # =============================================================================
 elif page == "Risk Analysis":
-    st.markdown('<div class="page-title">Turnover Risk Analysis</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-subtitle">Organizational patterns, operational workload impact, compensation tiers, and tenure vulnerability.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Workforce Turnover Risk & Demographic Fairness Analysis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-subtitle">Organizational risk distribution, operational workload triggers, sentiment analysis, and demographic fairness monitoring.</div>', unsafe_allow_html=True)
     
-    # 1. Key Operational Findings Banners
-    rc1, rc2, rc3 = st.columns(3)
-    with rc1:
+    # 1. Operational Triggers Row
+    oc1, oc2, oc3 = st.columns(3)
+    with oc1:
         st.markdown(f"""
         <div class="kpi-card" style="border-left: 4px solid {RISK_HIGH_COLOR};">
-            <div class="kpi-title">Overtime Risk Factor</div>
+            <div class="kpi-title">Overtime Turnover Multiplier</div>
             <div class="kpi-value" style="color: {RISK_HIGH_COLOR};">2.92x</div>
-            <div class="kpi-subtitle">Overtime staff turnover rate vs standard hours</div>
+            <div class="kpi-subtitle">Overtime staff historical departure rate vs. standard hours</div>
         </div>
         """, unsafe_allow_html=True)
-        
-    with rc2:
+    with oc2:
         st.markdown(f"""
         <div class="kpi-card" style="border-left: 4px solid #f59e0b;">
-            <div class="kpi-title">Onboarding Churn Rate</div>
+            <div class="kpi-title">First 24-Month Churn Window</div>
             <div class="kpi-value" style="color: #b45309;">29.8%</div>
-            <div class="kpi-subtitle">Turnover rate during first 24 months of tenure</div>
+            <div class="kpi-subtitle">Turnover rate during early tenure onboarding window</div>
         </div>
         """, unsafe_allow_html=True)
-        
-    with rc3:
+    with oc3:
         st.markdown(f"""
         <div class="kpi-card" style="border-left: 4px solid {NAVY_PRIMARY};">
-            <div class="kpi-title">Wage Sensitivity</div>
-            <div class="kpi-value" style="color: {NAVY_PRIMARY};">29.3%</div>
-            <div class="kpi-subtitle">Turnover in bottom compensation quartile (&lt;$2.9k/mo)</div>
+            <div class="kpi-title">Base-Rate Operating Cutoff</div>
+            <div class="kpi-value" style="color: {NAVY_PRIMARY};">16.0%</div>
+            <div class="kpi-subtitle">Threshold for elevated retention surveillance</div>
         </div>
         """, unsafe_allow_html=True)
         
-    # 2. Charts Row 1: Role Ranking & Overtime Contrast
-    col_r1, col_r2 = st.columns(2)
-    with col_r1:
+    # 2. Risk Charts Row 1: Distribution & Role Ranking
+    cr1, cr2 = st.columns(2)
+    with cr1:
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
-        st.markdown("**Flight Risk Percentage by Job Role**")
+        st.markdown("**Calibrated Flight Risk Probability Distribution**")
         
-        role_risk = df_filtered.groupby("JobRole").agg(
+        bins = [0.0, 0.10, 0.16, 0.25, 0.40, 1.0]
+        labels = ["0–10% (Minimal)", "10–16% (Low)", "16–25% (Medium Alert)", "25–40% (High)", "40%+ (Critical)"]
+        df_dist = df_filtered.copy()
+        df_dist["Prob_Bin"] = pd.cut(df_dist["Calibrated_Probability"], bins=bins, labels=labels)
+        dist_counts = df_dist["Prob_Bin"].value_counts(sort=False).reset_index()
+        dist_counts.columns = ["Risk_Bracket", "Employee_Count"]
+        
+        fig_dist = px.bar(
+            dist_counts,
+            x="Risk_Bracket",
+            y="Employee_Count",
+            color="Risk_Bracket",
+            color_discrete_sequence=["#16a34a", "#65a30d", "#f59e0b", "#ea580c", "#dc2626"],
+            text="Employee_Count",
+            height=300
+        )
+        fig_dist = format_plotly_chart(fig_dist)
+        fig_dist.update_layout(showlegend=False, xaxis_title="Calibrated Probability Range", yaxis_title="Staff Count")
+        fig_dist.update_traces(textposition="outside")
+        st.plotly_chart(fig_dist, width="stretch")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with cr2:
+        st.markdown('<div class="content-box">', unsafe_allow_html=True)
+        st.markdown("**Job Role Flight Risk Ranking (% High Risk)**")
+        
+        role_agg = df_filtered.groupby("JobRole").agg(
             Total=("EmployeeNumber", "count"),
             HighRisk=("Risk_Level", lambda x: (x == "High").sum()),
-            TurnoverRate=("Attrition", lambda x: (x == "Yes").mean() * 100)
-        ).reset_index().sort_values(by="TurnoverRate", ascending=True)
-        
-        role_risk["TurnoverRate"] = role_risk["TurnoverRate"].round(1)
+            AvgRisk=("Flight_Risk_Score", "mean")
+        ).reset_index()
+        role_agg["HighRiskPct"] = (role_agg["HighRisk"] / role_agg["Total"] * 100).round(1)
+        role_agg = role_agg.sort_values(by="HighRiskPct", ascending=True)
         
         fig_role = px.bar(
-            role_risk,
+            role_agg,
             y="JobRole",
-            x="TurnoverRate",
+            x="HighRiskPct",
             orientation="h",
-            text=role_risk["TurnoverRate"].apply(lambda v: f"{v:.1f}%"),
-            color="TurnoverRate",
-            color_continuous_scale=["#3498db", "#e67e22", "#e74c3c"],
-            height=340
+            text=role_agg["HighRiskPct"].apply(lambda v: f"{v:.1f}%"),
+            color="HighRiskPct",
+            color_continuous_scale=["#3b82f6", "#f59e0b", "#dc2626"],
+            height=300
         )
         fig_role = format_plotly_chart(fig_role)
-        fig_role.update_layout(coloraxis_showscale=False, xaxis_title="Turnover Rate (%)", yaxis_title="")
+        fig_role.update_layout(coloraxis_showscale=False, xaxis_title="High Risk Proportion (%)", yaxis_title="")
         fig_role.update_traces(textposition="outside")
-        st.plotly_chart(fig_role, use_container_width=True)
+        st.plotly_chart(fig_role, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
-        
-    with col_r2:
+
+    # 3. Workload & Workplace Sentiment Row
+    sr1, sr2 = st.columns(2)
+    with sr1:
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
-        st.markdown("**Turnover by Career Tenure Stage**")
+        st.markdown("**Overtime Workload Impact on Flight Risk**")
         
-        df_filtered_copy = df_filtered.copy()
-        tenure_bins = [-1, 2, 5, 10, 45]
-        tenure_labels = ["0–2 Years", "3–5 Years", "6–10 Years", "10+ Years"]
-        df_filtered_copy["Tenure_Bracket"] = pd.cut(df_filtered_copy["YearsAtCompany"], bins=tenure_bins, labels=tenure_labels)
-        
-        tenure_agg = df_filtered_copy.groupby("Tenure_Bracket", observed=True).agg(
+        ot_stat = df_filtered.groupby("OverTime").agg(
             Total=("EmployeeNumber", "count"),
-            TurnoverRate=("Attrition", lambda x: (x == "Yes").mean() * 100)
+            HighRisk=("Risk_Level", lambda x: (x == "High").sum()),
+            AvgScore=("Flight_Risk_Score", "mean")
         ).reset_index()
-        tenure_agg["TurnoverRate"] = tenure_agg["TurnoverRate"].round(1)
+        ot_stat["OverTime_Label"] = ot_stat["OverTime"].map({"Yes": "Works Overtime", "No": "Standard Hours"})
+        ot_stat["HighRiskShare%"] = (ot_stat["HighRisk"] / ot_stat["Total"] * 100).round(1)
         
-        fig_tenure = px.bar(
-            tenure_agg,
-            x="Tenure_Bracket",
-            y="TurnoverRate",
-            color="Tenure_Bracket",
-            color_discrete_sequence=["#e74c3c", "#3498db", "#2b5c8f", "#16a34a"],
-            text=tenure_agg["TurnoverRate"].apply(lambda v: f"{v:.1f}%"),
-            height=340
+        fig_ot = px.bar(
+            ot_stat,
+            x="OverTime_Label",
+            y="HighRiskShare%",
+            color="OverTime_Label",
+            color_discrete_map={"Works Overtime": RISK_HIGH_COLOR, "Standard Hours": NAVY_PRIMARY},
+            text=ot_stat["HighRiskShare%"].apply(lambda v: f"{v:.1f}%"),
+            height=280
         )
-        fig_tenure = format_plotly_chart(fig_tenure)
-        fig_tenure.update_layout(showlegend=False, xaxis_title="Company Tenure Bracket", yaxis_title="Turnover Rate (%)")
-        fig_tenure.update_traces(textposition="outside")
-        st.plotly_chart(fig_tenure, use_container_width=True)
+        fig_ot = format_plotly_chart(fig_ot)
+        fig_ot.update_layout(showlegend=False, xaxis_title="", yaxis_title="High Risk Share (%)")
+        fig_ot.update_traces(textposition="outside")
+        st.plotly_chart(fig_ot, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
         
-    # 3. Charts Row 2: Workplace Sentiment (Job Satisfaction & Work-Life Balance)
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
+    with sr2:
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
-        st.markdown("**Impact of Job Satisfaction Sentiment**")
+        st.markdown("**Impact of Reported Job Satisfaction Sentiment**")
         
-        sat_agg = df_filtered.groupby("JobSatisfaction").agg(
+        sat_stat = df_filtered.groupby("JobSatisfaction").agg(
             Total=("EmployeeNumber", "count"),
-            TurnoverRate=("Attrition", lambda x: (x == "Yes").mean() * 100)
+            HighRisk=("Risk_Level", lambda x: (x == "High").sum()),
+            AvgRisk=("Flight_Risk_Score", "mean")
         ).reset_index()
-        sat_agg["Satisfaction_Label"] = sat_agg["JobSatisfaction"].map({1: "1 - Low", 2: "2 - Medium", 3: "3 - High", 4: "4 - Very High"})
-        sat_agg["TurnoverRate"] = sat_agg["TurnoverRate"].round(1)
+        sat_stat["Satisfaction"] = sat_stat["JobSatisfaction"].map({1: "1 - Low", 2: "2 - Medium", 3: "3 - High", 4: "4 - Very High"})
+        sat_stat["HighRiskShare%"] = (sat_stat["HighRisk"] / sat_stat["Total"] * 100).round(1)
         
         fig_sat = px.bar(
-            sat_agg,
-            x="Satisfaction_Label",
-            y="TurnoverRate",
-            color="Satisfaction_Label",
-            color_discrete_sequence=["#e74c3c", "#f59e0b", "#3b82f6", "#10b981"],
-            text=sat_agg["TurnoverRate"].apply(lambda v: f"{v:.1f}%"),
-            height=320
+            sat_stat,
+            x="Satisfaction",
+            y="HighRiskShare%",
+            color="Satisfaction",
+            color_discrete_sequence=["#dc2626", "#f59e0b", "#3b82f6", "#10b981"],
+            text=sat_stat["HighRiskShare%"].apply(lambda v: f"{v:.1f}%"),
+            height=280
         )
         fig_sat = format_plotly_chart(fig_sat)
-        fig_sat.update_layout(showlegend=False, xaxis_title="Reported Job Satisfaction", yaxis_title="Turnover Rate (%)")
+        fig_sat.update_layout(showlegend=False, xaxis_title="Reported Job Satisfaction", yaxis_title="High Risk Share (%)")
         fig_sat.update_traces(textposition="outside")
-        st.plotly_chart(fig_sat, use_container_width=True)
+        st.plotly_chart(fig_sat, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
         
-    with col_s2:
-        st.markdown('<div class="content-box">', unsafe_allow_html=True)
-        st.markdown("**Impact of Work-Life Balance Rating**")
-        
-        wlb_agg = df_filtered.groupby("WorkLifeBalance").agg(
-            Total=("EmployeeNumber", "count"),
-            TurnoverRate=("Attrition", lambda x: (x == "Yes").mean() * 100)
+    # 4. Demographic Fairness Monitoring & Disparity Disclosure
+    st.markdown('<div class="content-box">', unsafe_allow_html=True)
+    st.markdown("### Demographic Fairness & Subgroup Disparity Monitoring")
+    st.caption("Protected attributes (Age, Gender, MaritalStatus) are strictly excluded from predictive model inputs. Auditing is conducted externally on metadata container S.")
+    
+    # PROMINENT DISCLOSURE OF OBSERVED AGE-GROUP PERFORMANCE DISPARITY
+    st.markdown("""
+    <div class="disparity-box">
+        <strong>⚠️ Mandatory Disclosure — Observed Age-Group Performance Disparity (ADEA Protected Cohort):</strong><br>
+        Rigorous evaluation on the frozen held-out test partition (N=294) reveals a significant sensitivity disparity between younger and older employees:
+        <ul>
+            <li><strong>Employees Under 40:</strong> Model Recall = <strong>77.4%</strong> (False Negative Rate = <strong>22.6%</strong>). The model detects over 3 out of 4 departures.</li>
+            <li><strong>Employees 40 and Over:</strong> Model Recall = <strong>50.0%</strong> (False Negative Rate = <strong>50.0%</strong>). The model detects only 1 out of 2 departures (missing 50%).</li>
+        </ul>
+        <strong>Operational HR Directive:</strong> Because the model exhibits an elevated false-negative rate for older workers, HR leaders must <strong>never assume that an absent alert indicates retention security for senior or tenured staff</strong>. 
+        Organizations must conduct proactive human-centered stay interviews and qualitative engagement touchpoints universally across all career stages regardless of whether the model flags an alert.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.85rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #334155;">
+        <strong>Algorithmic Fairness Notice (Kleinberg-Chouldechova Theorem):</strong> Because historical baseline turnover rates differ slightly across demographic segments, mathematical fairness theorems prove that no classification model can simultaneously equalize False Positive Rates (FPR) and False Negative Rates (FNR) without destroying probability calibration. 
+        RetainIQ prioritizes frequentist calibration (Platt Scaling) so that probabilities reflect real-world event frequencies, paired with continuous external subgroup auditing.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_g, col_a = st.columns(2)
+    with col_g:
+        st.markdown("**Gender Cohort Monitoring (Active Workforce & Test Benchmark)**")
+        gender_tbl = data.groupby("Gender").agg(
+            Active_Headcount=("EmployeeNumber", "count"),
+            Predicted_Alerts=("Risk_Level", lambda x: (x.isin(["High", "Medium"])).sum()),
+            Avg_Flight_Risk=("Flight_Risk_Score", "mean"),
+            Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100)
         ).reset_index()
-        wlb_agg["WLB_Label"] = wlb_agg["WorkLifeBalance"].map({1: "1 - Bad", 2: "2 - Good", 3: "3 - Better", 4: "4 - Best"})
-        wlb_agg["TurnoverRate"] = wlb_agg["TurnoverRate"].round(1)
+        gender_tbl["Selection_Rate_%"] = (gender_tbl["Predicted_Alerts"] / gender_tbl["Active_Headcount"] * 100).round(1)
+        gender_tbl["Avg_Flight_Risk"] = gender_tbl["Avg_Flight_Risk"].round(1).astype(str) + "%"
+        gender_tbl["Historical_Rate_%"] = gender_tbl["Historical_Rate"].round(1).astype(str) + "%"
         
-        fig_wlb = px.bar(
-            wlb_agg,
-            x="WLB_Label",
-            y="TurnoverRate",
-            color="WLB_Label",
-            color_discrete_sequence=["#e74c3c", "#f59e0b", "#3b82f6", "#10b981"],
-            text=wlb_agg["TurnoverRate"].apply(lambda v: f"{v:.1f}%"),
-            height=320
-        )
-        fig_wlb = format_plotly_chart(fig_wlb)
-        fig_wlb.update_layout(showlegend=False, xaxis_title="Work-Life Balance Rating", yaxis_title="Turnover Rate (%)")
-        fig_wlb.update_traces(textposition="outside")
-        st.plotly_chart(fig_wlb, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Test benchmark error rates from audited held-out test set
+        test_metrics_gender = {
+            "Female": {"FPR": "31.00%", "FNR": "31.25%"},
+            "Male": {"FPR": "19.73%", "FNR": "32.26%"}
+        }
+        gender_tbl["Test_FPR"] = gender_tbl["Gender"].map(lambda x: test_metrics_gender.get(x, {}).get("FPR", "N/A"))
+        gender_tbl["Test_FNR"] = gender_tbl["Gender"].map(lambda x: test_metrics_gender.get(x, {}).get("FNR", "N/A"))
+        
+        st.dataframe(gender_tbl.rename(columns={
+            "Active_Headcount": "Headcount",
+            "Predicted_Alerts": "Alert Count (≥16%)",
+            "Selection_Rate_%": "Alert Rate %",
+            "Avg_Flight_Risk": "Avg Calibrated Risk",
+            "Historical_Rate_%": "Past Turnover %",
+            "Test_FPR": "Test FPR",
+            "Test_FNR": "Test FNR"
+        }), hide_index=True, width="stretch")
+        
+    with col_a:
+        st.markdown("**ADEA Age Cohort Monitoring (Active Workforce & Test Benchmark)**")
+        data_age = data.copy()
+        data_age["ADEA_Cohort"] = np.where(data_age["Age"] >= 40, "40 and Over", "Under 40")
+        age_tbl = data_age.groupby("ADEA_Cohort").agg(
+            Active_Headcount=("EmployeeNumber", "count"),
+            Predicted_Alerts=("Risk_Level", lambda x: (x.isin(["High", "Medium"])).sum()),
+            Avg_Flight_Risk=("Flight_Risk_Score", "mean"),
+            Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100)
+        ).reset_index()
+        age_tbl["Selection_Rate_%"] = (age_tbl["Predicted_Alerts"] / age_tbl["Active_Headcount"] * 100).round(1)
+        age_tbl["Avg_Flight_Risk"] = age_tbl["Avg_Flight_Risk"].round(1).astype(str) + "%"
+        age_tbl["Historical_Rate_%"] = age_tbl["Historical_Rate"].round(1).astype(str) + "%"
+        
+        # Test benchmark error rates from audited held-out test set
+        test_metrics_age = {
+            "40 and Over": {"FPR": "14.12%", "FNR": "50.00%"},
+            "Under 40": {"FPR": "29.63%", "FNR": "22.58%"}
+        }
+        age_tbl["Test_FPR"] = age_tbl["ADEA_Cohort"].map(lambda x: test_metrics_age.get(x, {}).get("FPR", "N/A"))
+        age_tbl["Test_FNR"] = age_tbl["ADEA_Cohort"].map(lambda x: test_metrics_age.get(x, {}).get("FNR", "N/A"))
+        
+        st.dataframe(age_tbl.rename(columns={
+            "ADEA_Cohort": "Age Cohort",
+            "Active_Headcount": "Headcount",
+            "Predicted_Alerts": "Alert Count (≥16%)",
+            "Selection_Rate_%": "Alert Rate %",
+            "Avg_Flight_Risk": "Avg Calibrated Risk",
+            "Historical_Rate_%": "Past Turnover %",
+            "Test_FPR": "Test FPR",
+            "Test_FNR": "Test FNR"
+        }), hide_index=True, width="stretch")
+        
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =============================================================================
-# PAGE 4: INSIGHTS
+# PAGE 4: STRATEGIC INSIGHTS
 # =============================================================================
 elif page == "Insights":
-    st.markdown('<div class="page-title">Strategic Retention Insights & Recommendations</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-subtitle">Proactive takeaways, prescriptive retention playbooks, and organizational ROI impact modeling.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">Retention Insights & Strategic Guidance</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-subtitle">Global feature importances, prescriptive retention playbooks, and illustrative scenario simulations.</div>', unsafe_allow_html=True)
     
-    # 1. Executive Findings Cards
-    st.markdown("**Core Intelligence Findings**")
+    # 1. Executive Intelligence Takeaways
+    st.markdown("**Core Workforce Intelligence Takeaways**")
     f1, f2 = st.columns(2)
     with f1:
         st.markdown(f"""
         <div class="content-box" style="border-top: 3px solid {NAVY_PRIMARY};">
-            <h4 style="color: {NAVY_PRIMARY}; margin-top: 0;">1. The Headcount vs. Rate Paradox</h4>
-            <p style="font-size: 0.88rem; color: {TEXT_MUTED}; line-height: 1.4;">
-                While <strong>Research & Development</strong> generates 56% of total company resignations in absolute count (133 departures), 
-                its turnover rate is actually low at <strong>13.8%</strong>. 
-                In contrast, <strong>Sales</strong> suffers a <strong>20.6%</strong> attrition rate and <strong>Human Resources</strong> stands at <strong>19.1%</strong>. 
-                Allocating retention budgets solely by raw departure volume misallocates capital away from high-risk commercial teams.
+            <h4 style="color: {NAVY_PRIMARY}; margin-top: 0;">1. The Overtime Flight Multiplier</h4>
+            <p style="font-size: 0.86rem; color: {TEXT_MUTED}; line-height: 1.45;">
+                Employees working recurring overtime experience a <strong>30.5% turnover rate</strong> compared to just 10.4% for standard-hour staff. 
+                In the calibrated model, overtime emerges as the single most potent individual driver of turnover risk, shifting predicted probability upwards by an average of <strong>+12% to +17% probability points</strong>.
             </p>
         </div>
         """, unsafe_allow_html=True)
-        
         st.markdown(f"""
         <div class="content-box" style="border-top: 3px solid {RISK_HIGH_COLOR};">
-            <h4 style="color: {RISK_HIGH_COLOR}; margin-top: 0;">2. The Overtime Flight Multiplier</h4>
-            <p style="font-size: 0.88rem; color: {TEXT_MUTED}; line-height: 1.4;">
-                Employees working recurring overtime experience a <strong>30.5% attrition rate</strong>, compared to just <strong>10.4%</strong> for standard-hour colleagues. 
-                Overtime acts as the single most potent operational turnover trigger across all job families, nearly tripling resignation likelihood (2.92x).
+            <h4 style="color: {RISK_HIGH_COLOR}; margin-top: 0;">2. Role Turnover Concentration</h4>
+            <p style="font-size: 0.86rem; color: {TEXT_MUTED}; line-height: 1.45;">
+                <strong>Sales Representatives (39.8% turnover)</strong> and <strong>Laboratory Technicians (23.9% turnover)</strong> exhibit the highest turnover incidence across the enterprise. 
+                Retention interventions focused on entry compensation alignment and commission transparency yield high defensive leverage in these two job families.
             </p>
         </div>
         """, unsafe_allow_html=True)
-        
     with f2:
         st.markdown(f"""
         <div class="content-box" style="border-top: 3px solid #f59e0b;">
-            <h4 style="color: #b45309; margin-top: 0;">3. The 24-Month Onboarding Vulnerability</h4>
-            <p style="font-size: 0.88rem; color: {TEXT_MUTED}; line-height: 1.4;">
-                Company turnover is heavily front-loaded: <strong>29.8%</strong> of employees leave within their first 2 years, dropping to 13.8% between years 3–5, and falling to 8.1% after year 10. 
-                Younger talent (aged 18–25) suffers <strong>35.8% turnover</strong>. First-year integration and mentorship are critical defensive points.
+            <h4 style="color: #b45309; margin-top: 0;">3. The 24-Month Onboarding Window</h4>
+            <p style="font-size: 0.86rem; color: {TEXT_MUTED}; line-height: 1.45;">
+                Turnover is front-loaded in organizational tenure: <strong>29.8% of new hires depart within their first 2 years</strong>, falling to 13.8% between years 3–5, and dropping to 8.1% beyond year 10. 
+                Formal onboarding check-ins and structured peer mentorship during the first 180 days are critical retention safeguards.
             </p>
         </div>
         """, unsafe_allow_html=True)
-        
         st.markdown(f"""
         <div class="content-box" style="border-top: 3px solid #16a34a;">
             <h4 style="color: #166534; margin-top: 0;">4. Promotion Recency & Stagnation</h4>
-            <p style="font-size: 0.88rem; color: {TEXT_MUTED}; line-height: 1.4;">
-                Retention follows a clear curve around promotions: flight risk is elevated in Year 1 post-promotion (18.9%) due to transition friction, 
-                reaches an optimal stability floor at Years 3–5 (10.1%), and rises again beyond 5 years without promotion (16.3%) due to perceived stagnation.
+            <p style="font-size: 0.86rem; color: {TEXT_MUTED}; line-height: 1.45;">
+                Flight risk elevates among staff with <strong>4+ years without a title progression</strong> (16.3% turnover). 
+                Transparent competency roadmaps that outline specific promotion criteria neutralize stagnation triggers before employees initiate passive external job searches.
             </p>
         </div>
         """, unsafe_allow_html=True)
         
-    # 2. Strategic Retention Action Playbook
-    st.markdown("**Actionable Retention Playbook**")
+    # 2. Global Feature Importance Chart (Calibrated Primary Model)
     st.markdown('<div class="content-box">', unsafe_allow_html=True)
+    st.markdown("**Global Turnover Drivers (Calibrated Age-Excluded Model / Probability Space)**")
+    st.caption("Measured as mean absolute impact on calibrated turnover probability in percentage points. Computed across representative organizational profiles.")
     
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        st.markdown(f"""
-        <div class="action-item" style="margin-bottom: 1rem;">
+    # Pre-computed verified global drivers for Calibrated Model B
+    drivers_data = pd.DataFrame([
+        {"Feature": "Overtime Workload", "Mean_Prob_Impact_%": 4.89, "Category": "Workload"},
+        {"Feature": "Total Career Experience", "Mean_Prob_Impact_%": 4.73, "Category": "Career Stage"},
+        {"Feature": "Job Role / Title", "Mean_Prob_Impact_%": 4.46, "Category": "Role & Compensation"},
+        {"Feature": "Years Since Last Promotion", "Mean_Prob_Impact_%": 3.34, "Category": "Career Progression"},
+        {"Feature": "Prior Companies Count", "Mean_Prob_Impact_%": 3.15, "Category": "Work History"},
+        {"Feature": "Stock Option Level", "Mean_Prob_Impact_%": 3.02, "Category": "Financial Retention"},
+        {"Feature": "Department", "Mean_Prob_Impact_%": 2.98, "Category": "Organizational"},
+        {"Feature": "Managerial Stability Ratio", "Mean_Prob_Impact_%": 2.82, "Category": "Management"},
+        {"Feature": "Workplace Sentiment Index", "Mean_Prob_Impact_%": 2.36, "Category": "Sentiment"},
+        {"Feature": "Commute Distance", "Mean_Prob_Impact_%": 2.19, "Category": "Workplace Flexibility"}
+    ])
+    
+    fig_glob = px.bar(
+        drivers_data[::-1],
+        x="Mean_Prob_Impact_%",
+        y="Feature",
+        orientation="h",
+        color="Category",
+        text=drivers_data[::-1]["Mean_Prob_Impact_%"].apply(lambda v: f"{v:.2f}%"),
+        height=340,
+        color_discrete_sequence=["#1b365d", "#0284c7", "#d97706", "#16a34a", "#64748b"]
+    )
+    fig_glob = format_plotly_chart(fig_glob)
+    fig_glob.update_layout(xaxis_title="Mean Absolute Impact on Calibrated Turnover Probability (Percentage Points %)", yaxis_title="")
+    fig_glob.update_traces(textposition="outside")
+    st.plotly_chart(fig_glob, width="stretch")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # 3. Prescriptive Retention Playbooks
+    st.markdown('<div class="content-box">', unsafe_allow_html=True)
+    st.markdown("**Prescriptive Retention Playbooks (Voluntary & Supportive HR Actions)**")
+    
+    pb1, pb2 = st.columns(2)
+    with pb1:
+        st.markdown("""
+        <div class="action-item" style="margin-bottom: 0.8rem;">
             <strong>Workload & Overtime Governance</strong><br>
-            Establish monthly caps on consecutive overtime hours. Implement automatic manager alerts when direct reports exceed 15% overtime over a rolling 60-day window.
+            Establish quarterly caps on consecutive overtime hours. Implement manager notifications when team members exceed 15% overtime over a rolling 60-day window to prevent burnout.
         </div>
         <div class="action-item">
             <strong>Targeted Sales & Lab Tech Compensation Reviews</strong><br>
-            Sales Representatives (39.8% turnover) and Laboratory Technicians (23.9% turnover) represent the highest role risks. Align base compensation to median role benchmarks to neutralize poaching.
+            Sales Representatives (39.8% turnover) and Lab Technicians (23.9% turnover) represent the highest risk roles. Align baseline compensation with median benchmarks to neutralize external poaching.
         </div>
         """, unsafe_allow_html=True)
-    with col_p2:
-        st.markdown(f"""
-        <div class="action-item" style="margin-bottom: 1rem;">
+    with pb2:
+        st.markdown("""
+        <div class="action-item" style="margin-bottom: 0.8rem;">
             <strong>Structured 90-Day & 18-Month Onboarding Milestones</strong><br>
-            Pair all new hires in their first 24 months with senior peer mentors outside their reporting chain. Conduct structured 90-day sentiment checks to identify early friction.
+            Pair all new hires in their first 24 months with senior peer mentors outside their reporting chain. Schedule structured 90-day sentiment checks to identify early friction.
         </div>
         <div class="action-item">
-            <strong>Transparent Career & Promotion Pathways</strong><br>
-            For staff with 4+ years since their last title progression, mandate a formal career growth conversation to map specific competencies required for advancement.
+            <strong>Transparent Career & Promotion Roadmaps</strong><br>
+            For employees with 4+ years since their last title progression, mandate a formal career growth conversation to map specific competencies required for advancement.
         </div>
         """, unsafe_allow_html=True)
-        
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    # 3. Interactive Retention ROI Calculator
-    st.markdown("**Retention ROI & Savings Calculator**")
+
+    # 4. Illustrative Retention Scenario Simulator
     st.markdown('<div class="content-box">', unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 0.88rem; color: #475569;'>Simulate the financial impact of retaining high-risk employees based on verified enterprise replacement costs (1.5x salary).</p>", unsafe_allow_html=True)
+    st.markdown("**Illustrative Retention Scenario Planning Simulator**")
+    st.caption("Simulate potential turnover reduction based on an illustrative replacement-cost assumption (1.5x salary = 18 months salary). Not a guarantee of financial savings.")
     
-    calc_c1, calc_c2 = st.columns([1, 2])
-    with calc_c1:
-        high_risk_max = max(1, (df_filtered["Risk_Level"] == "High").sum())
-        employees_saved = st.slider(
-            "High-Risk Employees Successfully Retained",
+    sc1, sc2 = st.columns([1, 2])
+    with sc1:
+        high_risk_total = max(1, int((df_filtered["Risk_Level"] == "High").sum()))
+        sim_saved = st.slider(
+            "Target High-Risk Employees Retained",
             min_value=1,
-            max_value=min(50, high_risk_max),
-            value=min(10, high_risk_max),
+            max_value=min(40, high_risk_total),
+            value=min(10, high_risk_total),
             step=1
         )
-        avg_high_risk_salary = df_filtered[df_filtered["Risk_Level"] == "High"]["MonthlyIncome"].mean()
-        if pd.isna(avg_high_risk_salary) or avg_high_risk_salary == 0:
-            avg_high_risk_salary = data["MonthlyIncome"].mean()
+        avg_high_salary = df_filtered[df_filtered["Risk_Level"] == "High"]["MonthlyIncome"].mean()
+        if pd.isna(avg_high_salary) or avg_high_salary == 0:
+            avg_high_salary = data["MonthlyIncome"].mean()
             
-    with calc_c2:
-        # Standard replacement cost: 1.5x annual base salary = 18 months salary
-        cost_per_turnover = avg_high_risk_salary * 18
-        total_savings = employees_saved * cost_per_turnover
+    with sc2:
+        unit_cost = avg_high_salary * 18
+        sim_total = sim_saved * unit_cost
         
         st.markdown(f"""
         <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1.25rem 1.5rem; text-align: center;">
-            <div style="font-size: 0.82rem; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">Estimated Cost Savings for Your Organization</div>
-            <div style="font-size: 2.2rem; font-weight: 800; color: #15803d; margin: 0.3rem 0;">${total_savings:,.0f}</div>
-            <div style="font-size: 0.85rem; color: #166534;">
-                Preserves <strong>{employees_saved} key team members</strong> based on an average role replacement cost of <strong>${cost_per_turnover:,.0f}</strong> per employee.
+            <div style="font-size: 0.8rem; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">Estimated Scenario Cost Exposure Protected</div>
+            <div style="font-size: 2.1rem; font-weight: 800; color: #15803d; margin: 0.25rem 0;">${sim_total:,.0f}</div>
+            <div style="font-size: 0.82rem; color: #166534;">
+                Simulates retaining <strong>{sim_saved} key team members</strong> based on an illustrative replacement-cost assumption of <strong>${unit_cost:,.0f}</strong> per departure (1.5x annual base salary benchmark).
+            </div>
+            <div style="font-size: 0.74rem; color: #15803d; margin-top: 0.35rem; font-style: italic;">
+                Note: This calculation represents an illustrative decision-support exercise based on standard replacement-cost assumptions. It does not reflect realized financial savings, cash balance impacts, or accounting guarantees.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
     st.markdown('</div>', unsafe_allow_html=True)

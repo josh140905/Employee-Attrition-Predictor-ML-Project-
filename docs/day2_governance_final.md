@@ -3,281 +3,298 @@
 
 **Project**: RetainIQ – AI-Powered Employee Attrition Prediction & Retention Intelligence Platform  
 **Auditor**: Senior Machine Learning Engineer & AI Governance Lead  
-**Scope**: Final Comparative Audit of Age Inclusion vs. Exclusion, Proxy Absorption, Training-Only Probability Calibration, Subgroup Disparity (Gender & ADEA Age), and Non-Adverse HR Governance  
+**Scope**: Final Targeted Audit of Calibration Comparison (Platt vs. Isotonic), Complete Model Comparison (Age Inc vs. Age Exc), SHAP Consistency & Calibrated Separation, Threshold Governance (5.2x Heuristic Disclaimer & False Positive Impact), Responsible AI Compliance Retraction, and Automated Test Validation  
 **Date**: November 20, 2026  
-**Status**: Completed, Mathematically Verified & Final Signoff Documented  
+**Status**: Completed, Mathematically Verified, Serialized & Empirically Validated  
 
 ---
 
 ## 1. Executive Summary & Governance Charter
 
-This document completes the formal **Day 2 Governance Audit** for the RetainIQ employee attrition prediction platform. Building upon the foundational findings in [docs/day1_data_audit.md](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/docs/day1_data_audit.md), [docs/day2_model_report.md](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/docs/day2_model_report.md), and [docs/day2_quality_review.md](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/docs/day2_quality_review.md), this audit resolves all pending algorithmic fairness, proxy leakage, probability calibration, and ethical employment questions prior to Day 3 dashboard integration.
+This report completes the final targeted Day 2 governance audit for the **RetainIQ** workforce retention intelligence platform. Building upon [docs/day1_data_audit.md](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/docs/day1_data_audit.md), [docs/day2_model_report.md](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/docs/day2_model_report.md), and [docs/day2_quality_review.md](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/docs/day2_quality_review.md), this audit resolves all pending questions regarding probability calibration comparisons, model candidate selection, SHAP mathematical consistency, decision threshold trade-offs, and ethical non-adverse deployment safeguards.
 
 ### Core Governance Determinations
 
-1. **Age Feature Decision (Model A vs. Model B)**:
-   - Comparing Logistic Regression with `Age` included (Model A) against `Age` excluded (Model B) across 15-fold Repeated Stratified CV shows near-identical discrimination (ROC-AUC **0.8270** vs. **0.8246**; PR-AUC **0.6097** vs. **0.6032**).
-   - **The "Blind Fairness" Fallacy**: When `Age` is omitted, `TotalWorkingYears` ($r = 0.680$ with Age) **absorbs 77% of the excluded Age coefficient** (shifting from $-0.6677$ to $-0.8735$). Excluding chronological age does *not* eliminate age-dependent scoring; it merely forces correlated tenure features to proxy for age invisibly. We formally retain `Age` in the primary model to maintain direct statistical control and transparent interpretability, while subjecting outputs to continuous ADEA subgroup auditing.
-2. **Probability Calibration Remediated**:
-   - Because [models/best_model_day2.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/best_model_day2.pkl) was trained with `class_weight='balanced'`, raw probabilities suffer a **+18.64% systematic over-prediction bias** (Expected Calibration Error = **18.64%**, Brier Score = **0.1598**).
-   - We trained and evaluated two post-hoc calibration methods strictly within training folds (zero test leakage): **Platt Scaling (Sigmoid)** and **Isotonic Regression**. Platt Scaling reduces ECE from **18.64% down to 2.95%** and Brier Score from **0.1598 to 0.1051** while preserving ranking discrimination (ROC-AUC 0.7795).
-3. **Subgroup Disparities Transparently Documented**:
-   - On the unseen test set ($N=294$), at the operational default ($p=0.50$), Female False Positive Rate is **26.00%** compared to Male FPR of **18.37%** (Disparity Ratio = **1.41**). Older workers ($\ge 40$) exhibit an FNR of **56.25%** (more than double the younger cohort's 25.81%).
-   - We explicitly retract all claims of "complete fairness" or "legal compliance". Under the Kleinberg-Chouldechova impossibility theorem, simultaneous FPR, FNR, and predictive parity cannot be achieved under differing subgroup base rates.
-4. **Strict Ethical Employment Governance**:
-   - In accordance with Title VII of the Civil Rights Act of 1964, the Age Discrimination in Employment Act (ADEA), and EU AI Act Article 14 (human oversight), RetainIQ predictions must **NEVER be used for automated or unreviewed adverse employment actions** (terminations, salary freezes, exclusion from promotion pools, or punitive performance reviews).
-   - The platform is strictly designated as an **inward-facing retention support system** to trigger voluntary manager check-ins, workload balancing, and career development support.
+1. **Calibration Comparison (Platt/Sigmoid vs. Isotonic vs. Uncalibrated)**:
+   - Evaluated strictly within 5-fold cross-validation on the training set ($N=1,176$) with zero held-out test leakage.
+   - On the held-out test partition ($N=294$), Platt Scaling (Sigmoid) reduces Brier Score loss from **0.1596** (uncalibrated) down to **0.1034**, and reduces Expected Calibration Error (ECE) from **19.35%** down to **5.46%**, aligning mean predicted probability (**15.10%**) with the true test base rate (**15.99%**).
+   - While Isotonic Regression achieves slightly lower ECE (4.41%), its non-parametric step-function behavior inflates test Log Loss to **0.4630** (vs. **0.3567** for Platt). Platt Scaling is retained as the most defensible method for small minority sample sizes ($N_1=190$ in train), with its parametric sigmoid assumptions explicitly documented.
+
+2. **Complete Model Candidate Comparison (Model A vs. Model B)**:
+   - On the identical held-out test set ($N=294$), **Model B (Age Excluded)** outperforms Model A (Age Included) in discrimination ranking:
+     - ROC-AUC: **0.7865** (Model B) vs. **0.7793** (Model A)
+     - PR-AUC: **0.5596** (Model B) vs. **0.5326** (Model A)
+     - Brier Score: **0.1596** (Model B) vs. **0.1598** (Model A)
+   - At calibrated operational threshold $p=0.16$, Model B achieves **0.7449** Accuracy, **0.3478** Precision, **0.6809** Recall, **0.4604** F1, **0.7865** ROC-AUC, **0.5558** PR-AUC, and **0.1034** Brier Score.
+   - Model B is formally recommended as the default candidate for deployment.
+
+3. **SHAP Consistency & Separation from Calibrated Probabilities**:
+   - **Dashboard Predictor**: The interactive dashboard ([app/main.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/app/main.py)) currently uses the legacy Day 1 Random Forest model ([models/attrition_model.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/attrition_model.pkl)) with heuristic driver explanations.
+   - **LinearSHAP Explainer**: [src/explainability.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/src/explainability.py) explains the uncalibrated Logistic Regression model ([models/best_model_day2.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/best_model_day2.pkl)) in raw log-odds (logit) space ($\max \text{error} = 4.44 \times 10^{-16}$).
+   - **Crucial Mathematical Distinction**: LinearSHAP decomposes the *uncalibrated* logit hyperplane. It does **not** additively reconstruct or directly explain the 5-fold Platt-calibrated ensemble probabilities. We explicitly reject any claim that LinearSHAP reconstructs calibrated probabilities.
+
+4. **Threshold Governance & Cost Ratio Heuristic**:
+   - The $5.2:1$ false-negative/false-positive cost ratio is an **illustrative heuristic assumption** derived from the dataset's class imbalance ratio ($1,176/190 \approx 5.2$), **not** an independently validated enterprise financial metric.
+   - Operating at threshold $p=0.16$ generates **60 False Positives** out of 92 flagged employees on the test set (Precision = **34.78%**). Approximately 2 out of every 3 flagged employees will not actually leave. This threshold is **not universally optimal** and must be adjusted according to organizational intervention capacity.
+
+5. **Responsible AI & Non-Adverse Governance**:
+   - We explicitly state that **excluding Age does NOT establish legal compliance and does NOT eliminate proxy discrimination**. Correlated features (`TotalWorkingYears`, $r=0.680$) continue to reflect age distributions.
+   - Chronological `Age` is preserved separately in sensitive metadata container $S_{\text{meta}}$ for continuous ADEA subgroup auditing.
+   - RetainIQ is strictly an **educational prototype**, not a legally validated employment system. Adverse employment actions are strictly prohibited.
 
 ---
 
-## 2. Section 1: Age Inclusion vs. Exclusion Comparative Audit
+## 2. Section 1: Probability Calibration Comparison Audit
 
-### 2.1 Empirical Cross-Validation Benchmark (15 Folds on Training Data, $N=1,176$)
+### 2.1 Methodology: Training-Only Cross-Validation (Zero Test Leakage)
 
-We conducted 15-fold Repeated Stratified Cross-Validation (5 folds $\times$ 3 repeats) comparing the primary Logistic Regression pipeline with `Age` included (Model A, 33 raw features / 46 transformed) versus `Age` excluded (Model B, 32 raw features / 45 transformed):
+Post-hoc calibration transforms raw model scores into empirical frequentist probabilities ($P(Y=1|X)$). To avoid data leakage, all calibrators were trained strictly within 5-fold cross-validation on the training partition ($N_{\text{train}}=1,176$). No held-out test samples or labels were used to fit calibrators or select the calibration method.
 
-| Evaluation Metric | Model A: Age Included (Mean ± Std) | Model B: Age Excluded (Mean ± Std) | Net Difference ($\Delta = \text{B} - \text{A}$) | Statistical Interpretation |
-| :--- | :---: | :---: | :---: | :--- |
-| **ROC-AUC** | **0.8270 ± 0.0307** | 0.8246 ± 0.0281 | -0.0024 | Marginal degradation in overall ranking power without Age. |
-| **PR-AUC** | **0.6097 ± 0.0608** | 0.6032 ± 0.0494 | -0.0065 | Slight drop in precision-recall trade-off on minority attritions. |
-| **F1-Score** | **0.5081 ± 0.0349** | 0.5032 ± 0.0295 | -0.0050 | Comparable balance between precision and recall at $p=0.50$. |
-| **Recall (Sensitivity)** | 0.7351 ± 0.0604 | **0.7368 ± 0.0585** | +0.0018 | Attrition capture rate virtually identical (~73.6%). |
-| **Precision** | **0.3900 ± 0.0363** | 0.3835 ± 0.0295 | -0.0066 | Model A produces slightly fewer false alarms across training folds. |
-| **Accuracy** | **0.7693 ± 0.0266** | 0.7645 ± 0.0234 | -0.0048 | Overall classification accuracy remains consistent. |
+We benchmarked three calibration regimes across both Model A (Age Included) and Model B (Age Excluded):
+1. **Uncalibrated Baseline**: Raw logistic regression probabilities with `class_weight='balanced'`.
+2. **Platt Scaling (Sigmoid)**: Parametric 2-parameter logistic transformation: $P(Y=1|z) = \frac{1}{1 + \exp(A \cdot z + B)}$.
+3. **Isotonic Regression**: Non-parametric piecewise constant isotonic regression fit via Pool Adjacent Violators Algorithm (PAVA).
 
-### 2.2 Held-Out Test Set Performance ($N_{\text{test}}=294$, 47 Attritions, $p=0.50$)
+### 2.2 Calibration Benchmark Results
 
-Both pipelines were fitted on the full training partition ($N=1,176$) and evaluated against the held-out test set ($N=294$):
+The table below presents the verified empirical cross-validation metrics on training Out-of-Fold (OOF) data ($N=1,176$) and the unseen held-out test set ($N=294$, actual base rate = **15.99%**):
 
-| Metric | Model A (Age Included) | Model B (Age Excluded) | Variance Analysis |
-| :--- | :---: | :---: | :--- |
-| **ROC-AUC** | 0.7793 | **0.7865** | +0.0072 (Model B slightly higher on test ranking) |
-| **PR-AUC** | 0.5326 | **0.5596** | +0.0270 (Model B slightly higher on test PR curve) |
-| **Accuracy** | **0.7619** | 0.7551 | -0.0068 (Model A slightly higher overall accuracy) |
-| **Precision** | **0.3614** (30 / 83) | 0.3494 (29 / 83) | -0.0120 (Model A has 1 fewer false alarm) |
-| **Recall** | **0.6383** (30 / 47) | 0.6170 (29 / 47) | -0.0213 (Model A catches 1 additional true departure) |
-| **F1-Score** | **0.4615** | 0.4462 | -0.0153 (Model A has higher F1) |
-| **Brier Score Loss** | 0.1598 | **0.1596** | -0.0002 (Virtually identical probability error) |
-| **Log Loss** | 0.4874 | **0.4871** | -0.0003 (Virtually identical cross-entropy) |
-| **Expected Calibration Error (ECE)** | **0.1864** | 0.1895 | +0.0031 (Model A slightly better calibrated) |
-| **Confusion Matrix $[[\text{TN}, \text{FP}], [\text{FN}, \text{TP}]]$** | `[[194, 53], [17, 30]]` | `[[193, 54], [18, 29]]` | Model A: 30 TP, 17 FN vs Model B: 29 TP, 18 FN |
+```
+========================================================================================================================
+PROBABILITY CALIBRATION BENCHMARK (TRAINING OOF VS. HELD-OUT TEST EVALUATION)
+========================================================================================================================
+Model & Calibration Method          Brier Score Loss   ECE (% Error)   Log Loss   ROC-AUC    PR-AUC     Mean Predicted P
+------------------------------------------------------------------------------------------------------------------------
+MODEL A: AGE INCLUDED
+  Training OOF (CV=5 on Train)
+    • Uncalibrated Baseline         0.1552             19.91%          0.4708     0.8303     0.6118     36.07% (+19.9%)
+    • Platt Scaling (Sigmoid)       0.0962              4.39%          0.3279     0.8296     0.6099     16.28% (+0.1%)
+    • Isotonic Regression           0.0924              2.23%          0.3473     0.8233     0.6062     16.47% (+0.3%)
+  Held-Out Test Set (N=294)
+    • Uncalibrated Baseline         0.1598             18.90%          0.4874     0.7793     0.5326     34.63% (+18.6%)
+    • Platt Scaling (Sigmoid)       0.1051              4.38%          0.3610     0.7795     0.5346     15.00% (-1.0%)
+    • Isotonic Regression           0.1065              5.79%          0.3608     0.7884     0.5398     14.50% (-1.5%)
 
-### 2.3 The "Blind Fairness" Fallacy & Proxy Absorption Analysis
+MODEL B: AGE EXCLUDED [RECOMMENDED CANDIDATE]
+  Training OOF (CV=5 on Train)
+    • Uncalibrated Baseline         0.1576             20.11%          0.4758     0.8277     0.6014     36.26% (+20.1%)
+    • Platt Scaling (Sigmoid)       0.0976              3.45%          0.3306     0.8263     0.5996     16.27% (+0.1%)
+    • Isotonic Regression           0.0948              2.25%          0.3523     0.8210     0.5951     16.37% (+0.2%)
+  Held-Out Test Set (N=294)
+    • Uncalibrated Baseline         0.1596             19.35%          0.4871     0.7865     0.5596     34.93% (+18.9%)
+    • Platt Scaling (Sigmoid) [REC] 0.1034              5.46%          0.3567     0.7865     0.5558     15.10% (-0.9%)
+    • Isotonic Regression           0.1041              4.41%          0.4630     0.7925     0.5528     14.64% (-1.4%)
+========================================================================================================================
+```
 
-Why does excluding `Age` fail to protect older workers from age-correlated predictions? We inspected the learned standardized logistic regression coefficients ($\beta$) across both models:
+### 2.3 Method Selection Rationale & Documented Limitations
+
+1. **Why Platt Scaling is Retained as the Best Defensible Calibrator**:
+   - On the training set, Platt Scaling reduces Brier score by **38.1%** (from 0.1576 to 0.0976) and reduces training ECE from 20.11% to 3.45%.
+   - On held-out test data, Platt Scaling achieves a lower Brier score (**0.1034** vs. 0.1041) and a substantially superior Log Loss (**0.3567** vs. **0.4630**) compared to Isotonic Regression.
+   - In imbalanced datasets with limited minority events ($N_1=190$ in train, $N_1=47$ in test), Isotonic Regression is susceptible to bin overfitting, producing step-function artifacts that severely penalize Log Loss when test probabilities land near extreme step edges. Platt Scaling's smooth parametric curve prevents this penalty.
+2. **Documented Limitations of Platt Scaling**:
+   - **Monotonic Sigmoid Assumption**: Platt Scaling strictly assumes that the true mapping between log-odds and class probability follows a two-parameter logistic sigmoid. If the underlying calibration distortion is asymmetric or multi-modal, Platt Scaling cannot resolve it.
+   - **Invariance of Rank Ordering**: Platt scaling is a strictly monotonic transformation of decision scores; it does **not** alter the relative rank order of instances and therefore cannot improve ROC-AUC.
+
+---
+
+## 3. Section 2: Complete Model Comparison (Age Included vs. Age Excluded)
+
+### 3.1 Held-Out Test Set Performance Comparison ($N_{\text{test}}=294$)
+
+Both pipelines were trained on the identical training set ($N_{\text{train}}=1,176$) and evaluated on the identical held-out test partition ($N_{\text{test}}=294$, 47 actual attritions). All 7 core metrics are reported below across both standard ($p=0.50$) and calibrated ($p=0.16$) operational thresholds:
+
+| Model Architecture | Operating Threshold ($p^*$) | Accuracy | Precision | Recall | F1-Score | ROC-AUC | PR-AUC | Brier Score Loss |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Model A: Age Included** *(Uncalibrated)* | $p = 0.50$ | **0.7619** | **0.3614** (30/83) | **0.6383** (30/47) | **0.4615** | 0.7793 | 0.5326 | 0.1598 |
+| **Model B: Age Excluded** *(Uncalibrated)* | $p = 0.50$ | 0.7551 | 0.3494 (29/83) | 0.6170 (29/47) | 0.4462 | **0.7865** | **0.5596** | **0.1596** |
+| | | | | | | | | |
+| **Model A: Age Included** *(Platt Calibrated)* | $p = 0.16$ | 0.7279 | 0.3299 (32/97) | **0.6809** (32/47) | 0.4444 | 0.7795 | 0.5346 | 0.1051 |
+| **Model B: Age Excluded** *(Platt Calibrated)*<br>***[RECOMMENDED DEFAULT CANDIDATE]*** | $p = 0.16$ | **0.7449** | **0.3478** (32/92) | **0.6809** (32/47) | **0.4604** | **0.7865** | **0.5558** | **0.1034** |
+
+### 3.2 Key Findings from Model Comparison
+- **Discrimination Superiority of Model B**: Model B (Age Excluded) achieves higher ranking discrimination on held-out test data than Model A across all evaluations (**ROC-AUC 0.7865 vs. 0.7793; PR-AUC 0.5596 vs. 0.5326**).
+- **Calibrated Parity & Efficiency**: At operational threshold $p=0.16$, both calibrated models achieve identical recall (**68.09%**, capturing 32 of 47 departures). However, Model B produces fewer false alarms (60 FP vs. 65 FP in Model A), yielding higher precision (**34.78%** vs. 32.99%) and higher overall accuracy (**74.49%** vs. 72.79%).
+- **Governance Determination**: We recommend **Model B (Age Excluded)** as the default candidate for deployment.
+
+---
+
+## 4. Section 3: Model Explainability & SHAP Consistency
+
+### 4.1 Production Model Mapping & System Clarity
+
+To eliminate prior architectural ambiguity, the table below maps each component to its exact implementation:
+
+| Component | Code Location | Serialized Artifact | Exact Model Class | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| **Dashboard Scoring** | [app/main.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/app/main.py), [src/model.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/src/model.py) | [models/attrition_model.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/attrition_model.pkl) | `RandomForestClassifier` (150 trees, balanced) | Functional Streamlit prototype risk scoring and heuristic drivers. |
+| **Primary Scoring Candidate** | [src/evaluate.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/src/evaluate.py) | [models/best_model_day2_age_excluded.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/best_model_day2_age_excluded.pkl) | `LogisticRegression` ($C=0.5$, balanced, Age exc) | Evaluated baseline candidate for Day 3 integration. |
+| **Calibrated Candidate** | [src/evaluate.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/src/evaluate.py) | [models/calibrated_model_day2_age_excluded.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/calibrated_model_day2_age_excluded.pkl) | `CalibratedClassifierCV` (5-fold Platt Sigmoid) | Recommended default candidate for frequentist likelihood output. |
+| **LinearSHAP Explainer** | [src/explainability.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/src/explainability.py) | [models/best_model_day2.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/best_model_day2.pkl) | `shap.LinearExplainer` on `LogisticRegression` | Exact additive attribution in uncalibrated logit space. |
+| **TreeSHAP Benchmark** | [src/explainability.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/src/explainability.py) | [models/tree_model_day2.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/tree_model_day2.pkl) | `shap.TreeExplainer` on `RandomForestClassifier` | Secondary non-linear tree research comparison. |
+
+### 4.2 Distinguishing Base Log-Odds Explanations from Calibrated Probabilities
+
+1. **Exact Reconstruction in Uncalibrated Log-Odds Space**:
+   In [src/explainability.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/src/explainability.py), `LogisticRegressionShapExplainer` natively decomposes the decision function of the base uncalibrated Logistic Regression model ([models/best_model_day2.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/best_model_day2.pkl)):
+   $$\text{decision\_function}(x) = w^T X_{\text{trans}} + b = \phi_0 + \sum_{j=1}^M \phi_j(x)$$
+   Across all 294 test instances, the maximum absolute difference between `clf.decision_function(x)` and $\phi_0 + \sum \phi_j$ is **$4.44 \times 10^{-16}$** (exact machine floating-point precision).
+2. **Why SHAP Does NOT Directly Reconstruct Calibrated Probabilities**:
+   - The Platt-calibrated model is a 5-fold ensemble of sigmoid transformers:
+     $$P_{\text{cal}}(Y=1|x) = \frac{1}{5} \sum_{k=1}^5 \frac{1}{1 + \exp\left(-\left(A_k \cdot \text{decision\_function}_k(x) + B_k\right)\right)}$$
+   - Because Platt calibration applies an affine scaling ($A_k, B_k$) and non-linear sigmoid link across multiple folds, **the raw SHAP values $\sum \phi_j$ do NOT additively sum to calibrated probabilities or calibrated log-odds**.
+   - We explicitly disclaim any assertion that LinearSHAP provides an exact additive explanation of the calibrated probability ensemble. LinearSHAP explains the *underlying feature contributions to the base classifier's logit*, which then passes through post-hoc calibration.
+
+---
+
+## 5. Section 4: Operational Threshold Governance & False Positive Analysis
+
+### 5.1 The 5.2x Cost Ratio as an Illustrative Assumption
+
+In cost-sensitive classification, the Bayes-optimal decision threshold minimizing total cost is:
+$$p^* = \frac{C_{\text{FP}}}{C_{\text{FN}} + C_{\text{FP}}} = \frac{1}{1 + \frac{C_{\text{FN}}}{C_{\text{FP}}}}$$
+If $C_{\text{FN}} / C_{\text{FP}} \approx 5.2$, the optimal cutoff is $p^* = \frac{1}{1 + 5.2} \approx 0.161$.
+
+> [!WARNING]
+> **GOVERNANCE NOTICE: ILLUSTRATIVE COST RATIO ASSUMPTION**  
+> The $5.2:1$ false-negative to false-positive cost ratio ($C_{\text{FN}} / C_{\text{FP}} = 5.2$) is an **illustrative heuristic assumption** derived directly from the empirical class imbalance ratio ($1,176 / 190 \approx 5.2:1$).  
+> It has **NOT** been independently validated by organizational financial audits or enterprise turnover cost accounting.  
+> It must not be cited as an established economic fact.
+
+### 5.2 Operational Consequences of Operating at Threshold $p=0.16$
+
+Deploying the calibrated model at $p=0.16$ has major organizational ramifications that HR leadership must understand:
 
 ```
 ========================================================================================
-STANDARDIZED COEFFICIENT SHIFT ANALYSIS: PROXY ABSORPTION
+TEST SET TRADEOFF ANALYSIS AT THRESHOLD p = 0.16 (CALIBRATED MODEL B, N = 294)
 ========================================================================================
-Feature Name                      Model A (Age Inc)   Model B (Age Exc)   Net Shift
+Metric                       Value      Operational Impact
 ----------------------------------------------------------------------------------------
-num__Age                          -0.2673             [EXCLUDED]          N/A
-num__TotalWorkingYears            -0.6677             -0.8735             -0.2058  <-- ABSORBS AGE
-num__YearsWithCurrManager         +0.2072             +0.2415             +0.0343
-num__MonthlyIncome                -0.1953             -0.1646             +0.0307
-num__YearsInCurrentRole           -0.1840             -0.1920             -0.0080
-num__YearsWithManagerRatio        -0.4799             -0.4886             -0.0087
-num__JobLevel                     +0.4096             +0.4002             -0.0094
-num__YearsAtCompany               -0.0634             -0.0586             +0.0048
+Actual Attritions in Test    47         Total true departures in test partition (15.99%)
+Total Flagged (Pred. Pos)    92         31.29% of workforce flagged for intervention
+True Positives (TP)          32         Captures 68.09% of all true resignations (Recall)
+False Positives (FP)         60         60 non-attriting employees flagged (FPR = 24.29%)
+Precision                    34.78%     Only ~1 in 3 flagged employees will actually leave
+False Alarm Ratio            1.88 : 1   1.88 false alarms for every 1 true departure caught
 ========================================================================================
 ```
 
-#### Key Statistical Finding
-- When `Age` is removed, the coefficient for `TotalWorkingYears` drops from **$-0.6677$ to $-0.8735$** (a negative shift of **$-0.2058$**).
-- Because `Age` and `TotalWorkingYears` are strongly correlated ($r = 0.680$), **`TotalWorkingYears` directly absorbs 77.0% of the excluded Age coefficient** ($\frac{-0.2058}{-0.2673} = 0.770$).
-- Removing `Age` does not decouple the model from age demographics; it simply forces the model to use career tenure as an implicit proxy for age.
-- **Architectural Decision**: We confirm **Model A (Age Included)** as the primary production engine. Explicitly including `Age` separates chronological age effects from experience tenure, prevents proxy distortion, captures more departing employees (30 vs. 29 on the test set), and enables transparent, auditable feature attributions via LinearSHAP.
+1. **High False Positive Volume**: At $p=0.16$, the model generates **60 False Positives** out of 92 total alerts.
+2. **Alert Fatigue & Resource Drain**: If HR conducts mandatory, intensive interventions for every flagged individual, nearly **65% of all meetings will be held with employees who had no intention of leaving**, creating manager fatigue and potential employee bewilderment.
+3. **Threshold 0.16 is NOT Universally Optimal**:
+   - For high-touch, expensive interventions (e.g. executive retention bonuses), a higher threshold ($p^* = 0.25 - 0.30$) is superior: at $p=0.30$, false positives drop from 60 down to 21, and precision increases to **52.27%**.
+   - Threshold $p=0.16$ is suitable *only* for low-cost, non-invasive, voluntary interventions such as anonymous departmental pulse checks or optional manager check-ins.
 
 ---
 
-## 3. Section 2: Probability Calibration Audit (Training-Only CV)
+## 6. Section 5: Subgroup Fairness & Disparity Audit
 
-### 3.1 The Miscalibration Problem
-The primary scoring model uses `class_weight='balanced'` to offset the 16.16% class imbalance. While this optimizes the decision boundary for sensitivity, it introduces a mathematical distortion:
-- Balanced class weighting applies sample weights $w_1 = \frac{N}{2N_1} \approx 3.09$ and $w_0 = \frac{N}{2N_0} \approx 0.60$ (ratio $\approx 5.15:1$).
-- In logistic regression, this shifts the intercept $b$ by $\ln(5.15) \approx +1.64$ log-odds, artificially inflating raw output probabilities.
-- On the held-out test set ($N=294$, actual attrition rate = **15.99%**), the uncalibrated model predicts a **mean probability of 34.63%**—more than double the actual incidence rate.
+### 6.1 Subgroup Performance Table ($N_{\text{test}}=294$)
 
-### 3.2 Evaluation of Training-Only Post-Hoc Calibration Methods
-To remediate this without data leakage, calibration transformers were fit strictly within 5-fold cross-validation loops on the training set ($N=1,176$) and evaluated on the held-out test set:
+The table below documents performance across Gender (Female vs. Male) and Age (ADEA Threshold: Under 40 vs. 40 and Over) for Model A and Model B under both threshold regimes:
 
-| Calibration Method | Mean Predicted Probability | Probability Inflation Bias | Brier Score Loss | Log Loss | Expected Calibration Error (ECE) | ROC-AUC | PR-AUC |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Uncalibrated (Balanced Baseline)** | 34.63% | +18.64% | 0.1598 | 0.4874 | 0.1864 (18.64%) | 0.7793 | 0.5326 |
-| **Platt Scaling (Sigmoid via CV=5)** | **15.00%** | **-0.99%** | **0.1051** | **0.3610** | **0.0295 (2.95%)** | 0.7795 | 0.5346 |
-| **Isotonic Regression (Non-parametric CV=5)** | 14.50% | -1.49% | 0.1065 | 0.3608 | 0.0567 (5.67%) | 0.7884 | 0.5398 |
+| Model & Threshold | Subgroup | Total ($N$) | Actual Pos. | Base Rate | Pred. Pos. | Sel. Rate | TP | FP | TN | FN | FPR | FNR | Precision | Recall |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Model A: Age Inc**<br>*(Uncalibrated $p=0.50$)* | **Female** | 116 | 16 | 13.79% | 37 | 31.90% | 11 | 26 | 74 | 5 | **0.2600** | **0.3125** | **0.2973** | 0.6875 |
+| | **Male** | 178 | 31 | 17.42% | 46 | 25.84% | 19 | 27 | 120 | 12 | **0.1837** | **0.3871** | **0.4130** | 0.6129 |
+| | **Under 40** | 193 | 31 | 16.06% | 67 | 34.72% | 23 | 44 | 118 | 8 | **0.2716** | **0.2581** | **0.3433** | 0.7419 |
+| | **40 and Over** | 101 | 16 | 15.84% | 16 | 15.84% | 7 | 9 | 76 | 9 | **0.1059** | **0.5625** | **0.4375** | 0.4375 |
+| | | | | | | | | | | | | | | |
+| **Model B: Age Exc**<br>*(Uncalibrated $p=0.50$)*<br>***[RECOMMENDED]*** | **Female** | 116 | 16 | 13.79% | 38 | 32.76% | 11 | 27 | 73 | 5 | **0.2700** | **0.3125** | **0.2895** | 0.6875 |
+| | **Male** | 178 | 31 | 17.42% | 45 | 25.28% | 18 | 27 | 120 | 13 | **0.1837** | **0.4194** | **0.4000** | 0.5806 |
+| | **Under 40** | 193 | 31 | 16.06% | 63 | 32.64% | 21 | 42 | 120 | 10 | **0.2593** | **0.3226** | **0.3333** | 0.6774 |
+| | **40 and Over** | 101 | 16 | 15.84% | 20 | 19.80% | 8 | 12 | 73 | 8 | **0.1412** | **0.5000** | **0.4000** | 0.5000 |
+| | | | | | | | | | | | | | | |
+| **Model A: Calibrated**<br>*(Platt CV=5, $p=0.16$)* | **Female** | 116 | 16 | 13.79% | 43 | 37.07% | 11 | 32 | 68 | 5 | **0.3200** | **0.3125** | **0.2558** | 0.6875 |
+| | **Male** | 178 | 31 | 17.42% | 54 | 30.34% | 21 | 33 | 114 | 10 | **0.2245** | **0.3226** | **0.3889** | 0.6774 |
+| | **Under 40** | 193 | 31 | 16.06% | 78 | 40.41% | 24 | 54 | 108 | 7 | **0.3333** | **0.2258** | **0.3077** | 0.7742 |
+| | **40 and Over** | 101 | 16 | 15.84% | 19 | 18.81% | 8 | 11 | 74 | 8 | **0.1294** | **0.5000** | **0.4211** | 0.5000 |
+| | | | | | | | | | | | | | | |
+| **Model B: Calibrated**<br>*(Platt CV=5, $p=0.16$)*<br>***[RECOMMENDED]*** | **Female** | 116 | 16 | 13.79% | 42 | 36.21% | 11 | 31 | 69 | 5 | **0.3100** | **0.3125** | **0.2619** | 0.6875 |
+| | **Male** | 178 | 31 | 17.42% | 50 | 28.09% | 21 | 29 | 118 | 10 | **0.1973** | **0.3226** | **0.4200** | 0.6774 |
+| | **Under 40** | 193 | 31 | 16.06% | 72 | 37.31% | 24 | 48 | 114 | 7 | **0.2963** | **0.2258** | **0.3333** | 0.7742 |
+| | **40 and Over** | 101 | 16 | 15.84% | 20 | 19.80% | 8 | 12 | 73 | 8 | **0.1412** | **0.5000** | **0.4000** | 0.5000 |
 
-```
-Calibration Error (ECE) Comparison:
-Uncalibrated Baseline : [====================================] 18.64% ECE
-Isotonic Regression   : [===========>                        ]  5.67% ECE
-Platt Scaling (Sigmoid): [======>                             ]  2.95% ECE  <-- OPTIMAL
-```
-
-### 3.3 Reliability Bin Analysis: Uncalibrated vs. Platt Calibrated
-
-```
-========================================================================================
-RELIABILITY COMPARISON: PREDICTED PROBABILITY VS. ACTUAL ATTRITION INCIDENCE
-========================================================================================
-Bin Range    Uncalibrated Mean Pred   Uncalibrated True Rate   Platt Mean Pred   Platt True Rate
-----------------------------------------------------------------------------------------
-0.00 - 0.20  8.9%                     5.6% (+3.3% bias)        5.1%              5.2% (-0.1% bias)
-0.20 - 0.40  28.6%                    10.4% (+18.2% bias)      28.4%             26.3% (+2.1% bias)
-0.40 - 0.60  50.4%                    13.7% (+36.7% bias)      48.9%             50.0% (-1.1% bias)
-0.60 - 0.80  69.6%                    32.4% (+37.1% bias)      67.2%             66.7% (+0.5% bias)
-0.80 - 1.00  89.0%                    66.7% (+22.4% bias)      85.0%             83.3% (+1.7% bias)
-========================================================================================
-```
-
-### 3.4 Governance Takeaway & Implementation Guidance
-1. **Platt Scaling is the Superior Calibrator**: Platt Scaling (sigmoid calibration) reduces the Expected Calibration Error from **18.64% to 2.95%** (an **84.2% reduction**) and cuts Brier Score loss from **0.1598 to 0.1051** (a **34.2% improvement**), with zero degradation in ROC-AUC (0.7795).
-2. **Dashboard Display Policy**:
-   - If raw probabilities from `best_model_day2.pkl` are displayed, they must be explicitly labeled as a **"Flight Risk Score (0–100)"** representing relative ranking, rather than true frequentist likelihoods.
-   - If HR users require actual probability forecasts (e.g., "This employee has a 25% probability of leaving this year"), the Platt-calibrated pipeline must be utilized.
+### 6.2 Disparity Analysis & Inherent Mathematical Trade-offs
+1. **Gender Disparity**: Across all models, Female FPR is higher than Male FPR (0.3100 vs. 0.1973 in Calibrated Model B). Non-attriting females are ~1.57x more likely to be falsely flagged. Conversely, Male FNR is higher (32.26% vs. 31.25%), meaning departing males are slightly more likely to be missed.
+2. **Age Disparity**: In Model B, older employees face a **50.00% False Negative Rate** (8 of 16 departing older workers missed), compared to a 22.58% FNR for younger workers.
+3. **The Impossibility Theorem**: Per Kleinberg et al. (2016) and Chouldechova (2017), because historical base rates differ across demographic groups, **simultaneous parity across False Positive Rates, False Negative Rates, and Precision cannot be mathematically achieved** by any classifier that is not 100% accurate.
 
 ---
 
-## 4. Section 3: Subgroup Fairness & Disparity Audit
+## 7. Section 6: Responsible AI Policy & Compliance Disclaimers
 
-### 4.1 Test Set Subgroup Metrics Table ($N_{\text{test}}=294$)
-
-The table below documents the full empirical audit across Gender (Female vs. Male) and Age (ADEA Threshold: Under 40 vs. 40 and Over) across Model A (Age Included), Model B (Age Excluded), and the Platt-Calibrated Model:
-
-| Model & Threshold | Subgroup | Total ($N$) | Actual Attrition ($N$) | Base Rate | Predicted Positives ($N$) | Selection Rate | TP | FP | TN | FN | False Positive Rate (FPR) | False Negative Rate (FNR) | Recall (TPR) |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Model A: Age Inc**<br>*(Default $p=0.50$)* | **Female** | 116 | 16 | 13.79% | 37 | 31.90% | 11 | 26 | 74 | 5 | **0.2600** (26/100) | **0.3125** (5/16) | 0.6875 |
-| | **Male** | 178 | 31 | 17.42% | 46 | 25.84% | 19 | 27 | 120 | 12 | **0.1837** (27/147) | **0.3871** (12/31) | 0.6129 |
-| | *Disparity (F/M)* | — | — | *0.79* | — | *1.23* | — | — | — | — | **1.41** | **0.81** | *1.12* |
-| | **Under 40** | 193 | 31 | 16.06% | 67 | 34.72% | 23 | 44 | 118 | 8 | **0.2716** (44/162) | **0.2581** (8/31) | 0.7419 |
-| | **40 and Over** | 101 | 16 | 15.84% | 16 | 15.84% | 7 | 9 | 76 | 9 | **0.1059** (9/85) | **0.5625** (9/16) | 0.4375 |
-| | *Disparity (Older/Young)* | — | — | *0.99* | — | *0.46* | — | — | — | — | **0.39** | **2.18** | *0.59* |
-| | | | | | | | | | | | | | |
-| **Model B: Age Exc**<br>*(Default $p=0.50$)* | **Female** | 116 | 16 | 13.79% | 38 | 32.76% | 11 | 27 | 73 | 5 | **0.2700** (27/100) | **0.3125** (5/16) | 0.6875 |
-| | **Male** | 178 | 31 | 17.42% | 45 | 25.28% | 18 | 27 | 120 | 13 | **0.1837** (27/147) | **0.4194** (13/31) | 0.5806 |
-| | *Disparity (F/M)* | — | — | *0.79* | — | *1.30* | — | — | — | — | **1.47** | **0.75** | *1.18* |
-| | **Under 40** | 193 | 31 | 16.06% | 63 | 32.64% | 21 | 42 | 120 | 10 | **0.2593** (42/162) | **0.3226** (10/31) | 0.6774 |
-| | **40 and Over** | 101 | 16 | 15.84% | 20 | 19.80% | 8 | 12 | 73 | 8 | **0.1412** (12/85) | **0.5000** (8/16) | 0.5000 |
-| | *Disparity (Older/Young)* | — | — | *0.99* | — | *0.61* | — | — | — | — | **0.54** | **1.55** | *0.74* |
-| | | | | | | | | | | | | | |
-| **Model A: Platt Calibrated**<br>*(Base-Rate $p=0.16$)* | **Female** | 116 | 16 | 13.79% | 43 | 37.07% | 11 | 32 | 68 | 5 | **0.3200** (32/100) | **0.3125** (5/16) | 0.6875 |
-| | **Male** | 178 | 31 | 17.42% | 54 | 30.34% | 21 | 33 | 114 | 10 | **0.2245** (33/147) | **0.3226** (10/31) | 0.6774 |
-| | *Disparity (F/M)* | — | — | *0.79* | — | *1.22* | — | — | — | — | **1.43** | **0.97** | *1.01* |
-| | **Under 40** | 193 | 31 | 16.06% | 78 | 40.41% | 24 | 54 | 108 | 7 | **0.3333** (54/162) | **0.2258** (7/31) | 0.7742 |
-| | **40 and Over** | 101 | 16 | 15.84% | 19 | 18.81% | 8 | 11 | 74 | 8 | **0.1294** (11/85) | **0.5000** (8/16) | 0.5000 |
-| | *Disparity (Older/Young)* | — | — | *0.99* | — | *0.47* | — | — | — | — | **0.39** | **2.21** | *0.65* |
-
-### 4.2 Subgroup Disparity Analysis & Regulatory Reality
-
-1. **Gender Disparity Analysis**:
-   - Across all models, **Female False Positive Rate is 41% to 47% higher than Male FPR** (0.2600 vs. 0.1837 in Model A; 0.2700 vs. 0.1837 in Model B). Non-attriting female employees are significantly more likely to receive a false positive risk flag.
-   - Conversely, Male False Negative Rate is higher (38.71% vs. 31.25% in Model A), meaning departing male employees are more frequently missed.
-2. **Age ADEA Disparity Analysis**:
-   - In Model A, workers aged 40 and over exhibit a False Positive Rate of **10.59%**, compared to **27.16%** for younger workers (Disparity Ratio = **0.39**). Older workers are far less likely to be falsely flagged.
-   - However, **older departing workers face a 56.25% False Negative Rate** (more than double the 25.81% FNR for younger workers). More than half of all departing older workers leave without detection.
-   - Excluding `Age` (Model B) increases older worker false alarms (FPR jumps from 10.59% to 14.12%), while only modestly reducing FNR (50.00% vs. 56.25%).
-3. **The Impossibility Theorem of Machine Learning Fairness**:
-   - As proven by Kleinberg et al. (2016) and Chouldechova (2017), when base rates differ across groups, **it is mathematically impossible to simultaneously satisfy Equal False Positive Rates, Equal False Negative Rates, and Equal Predictive Parity** unless the model achieves perfect (100%) accuracy.
-   - We formally retract any past claim of "complete fairness" or "legal compliance". Statistical error parity is not achievable across all dimensions simultaneously.
-
----
-
-## 5. Section 4: Operational Threshold Strategy & Generalization Analysis
-
-### 5.1 OOF Optimization vs. Test Generalization
-
-We evaluated the generalizability of decision thresholds tuned on training Out-of-Fold (OOF) cross-validation data versus the unseen held-out test set ($N=294$):
-
-```
-========================================================================================
-THRESHOLD GENERALIZATION COMPARISON (MODEL A)
-========================================================================================
-Operating Policy            Cutoff (p*)  Training OOF F1  Held-Out Test F1  Generalization Delta
-----------------------------------------------------------------------------------------
-Balanced Operational Standard  p = 0.50     0.5153           0.4615            -10.4% (Stable)
-Cost-Sensitive (C_FN = 5C_FP) p = 0.61     0.5621           0.4634            -17.6% (Moderate)
-F1-Tuned (Training OOF)       p = 0.75     0.6023           0.4103            -31.9% (COLLAPSE)
-========================================================================================
-```
-
-### 5.2 The Generalization Collapse of $p=0.75$
-- Tuning $p^*=0.75$ to maximize F1 on training folds produced severe threshold overfitting:
-  - On training OOF, $p=0.75$ yielded F1 = **0.6023** and Recall = **54.21%**.
-  - On the held-out test set, F1 collapsed to **0.4103**, and Recall plunged to **34.04%** (31 out of 47 departing employees completely undetected).
-- In contrast, the unadjusted operational cutoff $p=0.50$ generalized with far greater stability:
-  - Held-out Test F1 = **0.4615** (substantially outperforming $p=0.75$).
-  - Held-out Test Recall = **63.83%** (capturing nearly two-thirds of all departures).
-- **Rule of Practice**: We never re-tune thresholds against the test set. For enterprise workforce analytics, an operational cutoff of **$p=0.50$ (or $p=0.16$ under Platt calibration)** provides the most dependable operational utility.
-
----
-
-## 6. Section 5: Responsible HR Usage & Legal Non-Adverse Governance
-
-To ensure ethical deployment and strict compliance with U.S. Federal Employment Law (Title VII, ADEA, EEOC UGESP) and the European Union Artificial Intelligence Act (EU AI Act, High-Risk AI Category Article 6 & Article 14):
-
-### 6.1 Strict Prohibition on Adverse Employment Decisions
 > [!CAUTION]
-> **NO AUTOMATED OR DERIVATIVE ADVERSE ACTIONS PERMITTED**  
-> RetainIQ model predictions, risk scores, and SHAP attributions must **NEVER** be used as grounds for:
-> 1. Employment termination, layoff selection, or workforce reduction targeting.
-> 2. Salary suppression, bonus withholding, or equity clawbacks.
-> 3. Exclusion from promotion consideration, leadership development tracks, or project assignments.
-> 4. Punitive or pretextual Performance Improvement Plans (PIPs).
+> ### EDUCATIONAL PROTOTYPE & LEGAL DISCLAIMER
+> **RetainIQ is an educational machine learning prototype and workforce analytics research tool.**  
+> It is **NOT** a certified or validated employment decision system.  
+> It has **NOT** been evaluated or validated under the EEOC Uniform Guidelines on Employee Selection Procedures (UGESP), 29 C.F.R. Part 1607, nor has it undergone a formal conformity assessment under the EU AI Act (High-Risk AI Systems).  
+> **Excluding Age from feature inputs does NOT establish legal compliance and does NOT eliminate proxy discrimination risks.**  
+> All prior statements asserting statutory compliance, complete fairness, or legal immunity are **formally retracted**.
 
-### 6.2 Mandated Positive & Supportive Intervention Protocols
-Model predictions are authorized exclusively for inward-facing, voluntary retention support:
-1. **Managerial Engagement Check-Ins**: Confidential, supportive one-on-one dialogues focused on employee satisfaction, career goals, and organizational barriers.
-2. **Workload & Overtime Rebalancing**: Operational audits of departments exhibiting severe overtime and burnout markers (`OverTime = Yes` and `WorkLifeBalance <= 2`).
-3. **Commute & Workplace Flexibility**: Evaluating remote or hybrid work accommodations for high-commute employees (`DistanceFromHome`).
-4. **Professional Development Mentorship**: Proactive career discussions for employees experiencing promotion stagnation (`TenureToPromoRatio`).
+### 7.1 Strict Prohibition on Adverse Employment Decisions
+RetainIQ risk scores, calibrated probabilities, and SHAP attributions must **NEVER** be used as grounds for:
+1. Layoff selection, workforce reductions, or termination targeting.
+2. Salary suppression, bonus denial, or compensation withholding.
+3. Denial of promotions, leadership tracks, or high-visibility projects.
+4. Placement on punitive Performance Improvement Plans (PIPs).
 
-### 6.3 Algorithmic Governance & Human-in-the-Loop Safeguards
-1. **Mandatory Human-in-the-Loop Oversight**: No automated actions may be triggered by the platform. A qualified HR professional must independently evaluate individual circumstances before initiating any supportive retention dialogue.
-2. **Periodic Subgroup Fairness Audits**: Algorithmic performance across gender, age (ADEA), and departmental cohorts must be re-audited quarterly to detect emergent demographic bias or drift.
-3. **Data Freshness Disclosure**: All dashboard pages must prominently disclose that sentiment metrics (`JobSatisfaction`, `EnvironmentSatisfaction`) reflect static survey snapshots that may not capture real-time sentiments.
+### 7.2 Mandated Positive & Voluntary Retention Protocols
+Use of the system is authorized exclusively for voluntary, supportive retention interventions:
+1. **Confidential Stay Interviews**: Voluntary one-on-one manager discussions focused on employee engagement and career development.
+2. **Workload & Burnout Rebalancing**: Department-level operational reviews where overtime is high (`OverTime = Yes`).
+3. **Commute & Schedule Flexibility**: Hybrid or flexible schedule options for staff with long commutes (`DistanceFromHome`).
+4. **Transparent Promotion Roadmaps**: Structured career discussions for staff experiencing title stagnation (`TenureToPromoRatio`).
 
 ---
 
-## 7. Section 6: Model & Explainability Verification
+## 8. Section 7: Verification & Automated Test Suite Results
 
-### 7.1 LinearSHAP Exact Reconstruction Proof
-We verified that [src/explainability.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/src/explainability.py) natively explains the primary prediction model ([models/best_model_day2.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/best_model_day2.pkl)) using `shap.LinearExplainer` with independent background distribution masking.
+All code changes, model artifacts, and test assertions are automated in [tests/test_validation.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/tests/test_validation.py).
 
-```python
-# Additive Reconstruction Proof in Log-Odds (Logit) Space:
-# decision_function(X) = base_value + sum(shap_values)
-logits = clf.decision_function(X_trans)
-reconstructed = shap_res.base_values + np.sum(shap_res.values, axis=1)
-max_discrepancy = np.max(np.abs(logits - reconstructed))
-assert max_discrepancy < 1e-12  # PASSED: Discrepancy = 4.44e-16
+```
+========================================================================================
+AUTOMATED VALIDATION TEST SUITE EXECUTION (tests/test_validation.py)
+========================================================================================
+Test Method                                 Verified Assertion                         Status
+----------------------------------------------------------------------------------------
+test_01_model_loading                       All 6 PKL artifacts load cleanly via joblib PASSED
+test_02_feature_order_and_alignment         ColumnTransformer shape (46 & 45 cols)      PASSED
+test_03_calibrated_artifact_probs           Model A: Mean Prob ~15.0%, ECE < 5%, Brier < 0.11 PASSED
+test_04_age_excluded_calibrated_artifact    Model B: Mean Prob ~15.1%, AUC ~0.7865     PASSED
+test_05_predict_proba_validity              Probabilities in [0, 1] and sum to 1.0     PASSED
+test_06_shap_exact_reconstruction           LinearSHAP logit reconstruction < 1e-12    PASSED
+test_07_test_set_preservation               Test partition N=294, 47 positive labels   PASSED
+----------------------------------------------------------------------------------------
+Ran 7 tests in 0.740s -- ALL TESTS PASSED (OK)
+========================================================================================
 ```
 
-- **Reconstruction Error**: **$4.44 \times 10^{-16}$** (exact machine precision).
-- **Probability Mapping**: $\sigma(\text{base\_value} + \sum \phi_i) = \text{predict\_proba}(x)[1]$ with numerical discrepancy **$3.33 \times 10^{-16}$**.
+---
+
+## 9. Section 8: Unresolved Limitations & Engineering Boundaries
+
+In accordance with transparent AI governance standards, the following unresolved limitations are disclosed:
+
+1. **Synthetic & Static Dataset**: The IBM HR Analytics dataset is a cross-sectional synthetic benchmark lacking temporal timestamps. It cannot model employee turnover dynamics over time or track post-intervention retention efficacy.
+2. **Survey Timing & Target Leakage Risk**: Pulse survey metrics (`JobSatisfaction`, `EnvironmentSatisfaction`) reflect static historical snapshots. If administered during an employee's resignation window, historical survey data constitutes target leakage.
+3. **Mathematical Impossibility of Fairness**: Due to disparate demographic base rates, error rate disparities (e.g. Female FPR = 0.3100 vs. Male FPR = 0.1973) cannot be mathematically eliminated without severely distorting predictive validity.
+4. **Observational vs. Causal Attributions**: LinearSHAP attributions identify correlational associations within the decision hyperplane, not causal interventions. Reducing overtime does not guarantee employee retention if unmeasured compensation or leadership factors are the true root cause.
+5. **Dashboard Integration Pending (Day 3)**: The current Streamlit application ([app/main.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/app/main.py)) remains connected to the legacy baseline model ([models/attrition_model.pkl](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/models/attrition_model.pkl)). Formal integration of the calibrated Age-excluded pipeline is scheduled for Day 3.
 
 ---
 
-## 8. Summary of Changes, Test Results & Unresolved Limitations
+## 10. Final Signoff & Verification Audit Record
 
-### 8.1 Summary of Executed Changes
-1. **Age Inclusion Comparative Benchmark**: Executed 15-fold CV and test evaluations for Model A (Age Inc) vs. Model B (Age Exc). Documented the proxy absorption mechanism where `TotalWorkingYears` absorbed 77% of `Age`'s coefficient. Confirmed Model A as primary.
-2. **Probability Calibration Implementation**: Implemented Platt Scaling and Isotonic Regression via 5-fold CV on training data. Proved Platt Scaling reduces ECE from 18.64% to 2.95% and Brier score from 0.1598 to 0.1051.
-3. **Fairness Audit Remediated**: Produced full confusion matrix tables with exact sample sizes ($N$) for Gender and ADEA Age groups across cutoffs $p=0.50$, $p=0.75$, and calibrated $p=0.16$. Retracted false legal compliance claims.
-4. **Threshold Overfitting Documented**: Analyzed the collapse of $p=0.75$ on the test set and established $p=0.50$ as the operational baseline.
-5. **Responsible HR Governance Enacted**: Established explicit prohibitions on adverse employment decisions and mandated human-in-the-loop positive retention protocols.
-6. **Code & Artifact Integrity Maintained**: Preserved all existing reports, dashboard ([app/main.py](file:///C:/Users/aryan/OneDrive/Desktop/RetainIQ/app/main.py)), and baseline models.
+All items in the targeted Day 2 governance audit have been fully resolved:
+- **Calibration Comparison**: Completed for Uncalibrated, Platt, and Isotonic across training OOF and test partitions; Platt Scaling retained as best defensible method with limitations documented.
+- **Complete Model Comparison**: Reported Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC, and Brier Score for Model A and Model B on identical held-out test data.
+- **SHAP Consistency**: Identified dashboard model (Random Forest) vs. LinearSHAP model (uncalibrated Logistic Regression); explicitly distinguished log-odds explanations from calibrated probabilities.
+- **Threshold Governance**: Marked 5.2x cost ratio as an illustrative assumption; documented the 60 false positives and 34.78% precision at $p=0.16$.
+- **Responsible AI**: Removed unsupported legal compliance claims; disclaimed that excluding Age eliminates proxy discrimination; maintained separate fairness auditing; reinforced adverse action prohibitions.
+- **Validation**: Executed test suite (7/7 passed); confirmed all 6 PKL artifacts load; preserved test set and dashboard; honestly listed unresolved limitations.
 
-### 8.2 Unresolved Limitations for Future Phases
-1. **Cross-Sectional Dataset Stagnation**: The IBM HR Analytics dataset is a static, non-longitudinal snapshot. It cannot model temporal burnout progression or post-intervention retention outcomes.
-2. **Survey Latency & Post-Decision Risk**: In enterprise production, satisfaction survey scores are collected periodically (annual/quarterly pulse). If surveys are administered during exit processes, historical survey scores constitute post-decision target leakage.
-3. **Inherent Error Rate Disparities**: Due to unequal subgroup base rates, mathematical parity across both FPR and FNR cannot be achieved simultaneously. Continuous human monitoring is mandatory.
-4. **Observational vs. Causal Attributions**: SHAP feature attributions reflect statistical associations in the model's decision function, not proven causal interventions. Reducing overtime does not mathematically guarantee retention if root-cause compensation or management factors are unaddressed.
-
----
-
-## 9. Final Signoff & Readiness for Day 3
-
-Day 2 Machine Learning Model Development, Statistical Evaluation, Production Quality Review, and Final Governance Audit are **100% COMPLETE**.
-
-All artifacts, models, scripts, and documentation are verified, reproducible, and ready for Day 3 Dashboard Integration.
+**Audit Status**: **APPROVED & FULLY VERIFIED**  
+**Lead Auditor**: Senior Machine Learning Engineer & AI Governance Lead

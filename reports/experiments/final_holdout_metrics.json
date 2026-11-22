@@ -1,0 +1,247 @@
+{
+  "evaluation_date": "2026-11-20",
+  "holdout_samples": 294,
+  "holdout_positives": 47,
+  "frozen_threshold": 0.3,
+  "candidate_model": {
+    "name": "Platt Calibrated 50/50 Ensemble (LR + Tuned RF)",
+    "artifact": "calibrated_ensemble_50_50.pkl",
+    "at_frozen_threshold_0_30": {
+      "threshold": 0.3,
+      "accuracy": 0.8537,
+      "precision": 0.5476,
+      "recall": 0.4894,
+      "f1": 0.5169,
+      "roc_auc": 0.8163,
+      "pr_auc": 0.5663,
+      "brier_score": 0.1004,
+      "ece": 0.0402,
+      "tn": 228,
+      "fp": 19,
+      "fn": 24,
+      "tp": 23,
+      "fpr": 0.0769,
+      "fnr": 0.5106
+    },
+    "at_default_threshold_0_50": {
+      "threshold": 0.5,
+      "accuracy": 0.8741,
+      "precision": 0.6923,
+      "recall": 0.383,
+      "f1": 0.4932,
+      "roc_auc": 0.8163,
+      "pr_auc": 0.5663,
+      "brier_score": 0.1004,
+      "ece": 0.0402,
+      "tn": 239,
+      "fp": 8,
+      "fn": 29,
+      "tp": 18,
+      "fpr": 0.0324,
+      "fnr": 0.617
+    },
+    "confidence_intervals_95": {
+      "pr_auc": {
+        "estimate": 0.5663,
+        "ci_lower": 0.4348,
+        "ci_upper": 0.702
+      },
+      "roc_auc": {
+        "estimate": 0.8163,
+        "ci_lower": 0.7474,
+        "ci_upper": 0.8785
+      },
+      "brier_score": {
+        "estimate": 0.1004,
+        "ci_lower": 0.0761,
+        "ci_upper": 0.1264
+      },
+      "f1_score": {
+        "estimate": 0.5169,
+        "ci_lower": 0.3939,
+        "ci_upper": 0.6337
+      },
+      "recall": {
+        "estimate": 0.4894,
+        "ci_lower": 0.3541,
+        "ci_upper": 0.6251
+      },
+      "precision": {
+        "estimate": 0.5476,
+        "ci_lower": 0.4091,
+        "ci_upper": 0.706
+      }
+    },
+    "subgroups_at_frozen_threshold": {
+      "Female": {
+        "n_total": 116,
+        "n_pos": 16,
+        "n_neg": 100,
+        "tn": 92,
+        "fp": 8,
+        "fn": 8,
+        "tp": 8,
+        "fpr": 0.08,
+        "fnr": 0.5,
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1": 0.5
+      },
+      "Male": {
+        "n_total": 178,
+        "n_pos": 31,
+        "n_neg": 147,
+        "tn": 136,
+        "fp": 11,
+        "fn": 16,
+        "tp": 15,
+        "fpr": 0.0748,
+        "fnr": 0.5161,
+        "precision": 0.5769,
+        "recall": 0.4839,
+        "f1": 0.5263
+      },
+      "Under 40": {
+        "n_total": 193,
+        "n_pos": 31,
+        "n_neg": 162,
+        "tn": 149,
+        "fp": 13,
+        "fn": 12,
+        "tp": 19,
+        "fpr": 0.0802,
+        "fnr": 0.3871,
+        "precision": 0.5938,
+        "recall": 0.6129,
+        "f1": 0.6032
+      },
+      "40 and Over": {
+        "n_total": 101,
+        "n_pos": 16,
+        "n_neg": 85,
+        "tn": 79,
+        "fp": 6,
+        "fn": 12,
+        "tp": 4,
+        "fpr": 0.0706,
+        "fnr": 0.75,
+        "precision": 0.4,
+        "recall": 0.25,
+        "f1": 0.3077
+      }
+    }
+  },
+  "baseline_model": {
+    "name": "Day 2 Calibrated Logistic Regression (Age-Excluded)",
+    "artifact": "calibrated_model_day2_age_excluded.pkl",
+    "at_day2_threshold_0_16": {
+      "threshold": 0.16,
+      "accuracy": 0.7449,
+      "precision": 0.3478,
+      "recall": 0.6809,
+      "f1": 0.4604,
+      "roc_auc": 0.7865,
+      "pr_auc": 0.5558,
+      "brier_score": 0.1034,
+      "ece": 0.0546,
+      "tn": 187,
+      "fp": 60,
+      "fn": 15,
+      "tp": 32,
+      "fpr": 0.2429,
+      "fnr": 0.3191
+    },
+    "at_threshold_0_30": {
+      "threshold": 0.3,
+      "accuracy": 0.8469,
+      "precision": 0.5227,
+      "recall": 0.4894,
+      "f1": 0.5055,
+      "roc_auc": 0.7865,
+      "pr_auc": 0.5558,
+      "brier_score": 0.1034,
+      "ece": 0.0546,
+      "tn": 226,
+      "fp": 21,
+      "fn": 24,
+      "tp": 23,
+      "fpr": 0.085,
+      "fnr": 0.5106
+    },
+    "confidence_intervals_95": {
+      "pr_auc": {
+        "estimate": 0.5558,
+        "ci_lower": 0.42,
+        "ci_upper": 0.6855
+      },
+      "roc_auc": {
+        "estimate": 0.7865,
+        "ci_lower": 0.7038,
+        "ci_upper": 0.8585
+      },
+      "brier_score": {
+        "estimate": 0.1034,
+        "ci_lower": 0.0795,
+        "ci_upper": 0.1286
+      }
+    },
+    "subgroups_at_day2_threshold": {
+      "Female": {
+        "n_total": 116,
+        "n_pos": 16,
+        "n_neg": 100,
+        "tn": 69,
+        "fp": 31,
+        "fn": 5,
+        "tp": 11,
+        "fpr": 0.31,
+        "fnr": 0.3125,
+        "precision": 0.2619,
+        "recall": 0.6875,
+        "f1": 0.3793
+      },
+      "Male": {
+        "n_total": 178,
+        "n_pos": 31,
+        "n_neg": 147,
+        "tn": 118,
+        "fp": 29,
+        "fn": 10,
+        "tp": 21,
+        "fpr": 0.1973,
+        "fnr": 0.3226,
+        "precision": 0.42,
+        "recall": 0.6774,
+        "f1": 0.5185
+      },
+      "Under 40": {
+        "n_total": 193,
+        "n_pos": 31,
+        "n_neg": 162,
+        "tn": 114,
+        "fp": 48,
+        "fn": 7,
+        "tp": 24,
+        "fpr": 0.2963,
+        "fnr": 0.2258,
+        "precision": 0.3333,
+        "recall": 0.7742,
+        "f1": 0.466
+      },
+      "40 and Over": {
+        "n_total": 101,
+        "n_pos": 16,
+        "n_neg": 85,
+        "tn": 73,
+        "fp": 12,
+        "fn": 8,
+        "tp": 8,
+        "fpr": 0.1412,
+        "fnr": 0.5,
+        "precision": 0.4,
+        "recall": 0.5,
+        "f1": 0.4444
+      }
+    }
+  }
+}

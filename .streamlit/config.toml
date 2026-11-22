@@ -1,0 +1,15 @@
+[theme]
+base = "light"
+primaryColor = "#1b365d"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f8fafc"
+textColor = "#1e293b"
+
+[server]
+headless = true
+address = "127.0.0.1"
+port = 8501
+cookieSecret = "retainiq_secret_key_12345"
+
+[browser]
+gatherUsageStats = false
