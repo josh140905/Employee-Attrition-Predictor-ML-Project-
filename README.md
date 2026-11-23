@@ -45,19 +45,19 @@ The RetainIQ user interface is implemented in Streamlit with a clean, high-contr
 ```
 
 ### Page 1: Overview
-- **Executive KPI Cards**: Active Workforce Count (1,470), Historical Turnover Rate (16.1%), High Flight Risk Headcount (143), and Total Illustrative Cost Exposure ($31.8M based on the 1.5× replacement assumption).
+- **Executive KPI Cards** (default view, current employees only): Evaluated Workforce (1,233 current employees), Historical Turnover Rate (16.1%, computed over all 1,470 records), High Flight Risk Headcount (173), and Total Illustrative Cost Exposure ($16.1M based on the 1.5× replacement assumption). Switching off **Current employees only** in the sidebar adds back the 237 past leavers (1,470 records, 323 high risk, $26.8M).
 - **Departmental Risk Distribution**: Visual comparison of low, medium, and high-risk proportions across R&D, Sales, and Human Resources.
 - **Overtime Exposure Contrast**: Highlights the severe divergence between overtime staff (30.5% attrition) versus standard-hours staff (10.4% attrition).
 - **Department Health Matrix**: Interactive tabular overview summarizing headcount, mean tenure, average salary, and high-risk employee counts.
 
 ### Page 2: Employee Directory
 - **Multi-Factor Search & Filtering**: Filter real-time employee records by Employee ID (e.g., `EMP-0001`), Job Role, Department, and Flight Risk Tier.
-- **Structured Risk Tiers**:
-  - 🔴 **High Risk** (Flight probability $\ge 50\%$)
-  - 🟡 **Medium Risk** (Flight probability $25\% - 49\%$)
-  - 🟢 **Low Risk** (Flight probability $< 25\%$)
+- **Structured Risk Tiers** (as implemented in `src/model.py::generate_employee_risk_scores`):
+  - 🔴 **High Risk** (Flight probability $\ge 25\%$)
+  - 🟡 **Medium Risk** (Flight probability $16\% - 25\%$; 16% is the historical base rate)
+  - 🟢 **Low Risk** (Flight probability $< 16\%$)
 - **Individual Retention Profile Cards**: Select any employee to inspect:
-  - Exact calibrated flight risk probability.
+  - Calibrated flight risk probability, always out-of-sample (see *Honest scoring* in Section 3), with its source shown.
   - **Top 3 Risk Drivers**: Translated from mathematical SHAP values into business English (e.g., *"Frequent Overtime (+14.2% flight risk)"*, *"Zero Stock Options (+8.5% flight risk)"*).
   - **Tailored Voluntary Action Plan**: Positive, supportive retention suggestions (e.g., compensatory time off, compensation equity review, career development mentorship).
 - **Robust Empty States**: User-friendly reset prompt when filter combinations yield no matching records.
@@ -96,10 +96,10 @@ flowchart TD
     G --> H["Calibrated Probability P(Attrition)"]
     
     H --> I{"Risk Tiering & Thresholding"}
-    I -->|P >= 0.50| J["High Risk Tier"]
-    I -->|0.25 <= P < 0.50| K["Medium Risk Tier"]
-    I -->|P < 0.25| L["Low Risk Tier"]
-    I -->|P >= 0.16| M["Optimal F1 Alert Flag"]
+    I -->|P >= 0.25| J["High Risk Tier"]
+    I -->|0.16 <= P < 0.25| K["Medium Risk Tier"]
+    I -->|P < 0.16| L["Low Risk Tier"]
+    I -->|P >= 0.16| M["Alert Flag (High + Medium)"]
     
     F & G --> N["SHAP Explainability Engine<br/>(src/explainability.py)"]
     N --> O["Top 3 Risk Drivers<br/>(Plain English Translation)"]
@@ -112,7 +112,9 @@ flowchart TD
 1. **Feature Preparation**: `src/model.py::prepare_calibrated_features` enforces strict dimensional consistency (32 features), one-hot encoding for categorical variables, and alignment with the serialized preprocessor.
 2. **Probability Generation**: `models/calibrated_model_day2_age_excluded.pkl` utilizes a scikit-learn `CalibratedClassifierCV` wrapper (5-fold cross-validation with Platt sigmoid scaling) around a balanced `LogisticRegression` core.
 3. **Local Explanations**: `src/explainability.py::CalibratedAgeExcludedExplainer` computes exact linear attribution ($\beta_i \cdot x_i$), ranking individual drivers without heuristic approximations.
-4. **Caching Layer**: Employee predictions and explanations are cached in memory via `st.cache_data` for sub-second UI responsiveness.
+4. **Honest scoring**: no employee is scored by a model that trained on them. The 294 holdout employees get the production model's prediction; the 1,176 training-split employees get 5-fold out-of-fold predictions from clones of the same pipeline (`src/model.py::honest_probabilities`). Scoring training rows in-sample would overstate certainty (ROC-AUC 0.87 in-sample vs 0.83 out-of-fold on those rows). Each employee's profile shows its score source; driver attributions explain the final production model.
+5. **Current employees only**: risk counts, rosters and cost exposure exclude the 237 employees who already left (sidebar toggle, on by default); historical turnover rates always use all 1,470 records.
+6. **Caching Layer**: Employee predictions and explanations are cached in memory via `st.cache_data` for sub-second UI responsiveness.
 
 ---
 
@@ -139,12 +141,14 @@ During development, multiple candidate architectures were evaluated against stri
 | Evaluation Dimension | Candidate 1: Baseline Random Forest | Candidate 2: 50/50 Calibrated Ensemble | **Primary Production Model: Calibrated Age-Excluded Logistic Regression** |
 | :--- | :--- | :--- | :--- |
 | **Model Artifact** | `models/attrition_model.pkl` | `models/calibrated_ensemble_50_50.pkl` | `models/calibrated_model_day2_age_excluded.pkl` |
-| **Protected Demographic Status** | Included `Age`, `Gender`, `MaritalStatus` | Included `Age`, `Gender`, `MaritalStatus` | **Strictly Excluded `Age`, `Gender`, `MaritalStatus`** |
-| **Calibration Method** | Uncalibrated probabilities | Platt Sigmoid Scaling | **5-Fold Platt Sigmoid Scaling** |
-| **Expected Calibration Error (ECE)** | 0.1420 (Poor calibration) | 0.0617 (Good) | **0.0546 (Superior probability reliability)** |
-| **Brier Score** | 0.1284 | 0.1009 | **0.1034** |
-| **Holdout ROC-AUC** | 0.7640 | 0.8122 | **0.7865** |
-| **Holdout PR-AUC** | 0.4820 | 0.5709 | **0.5558** |
+| **Protected Demographic Status** | Included `Age`, `Gender`, `MaritalStatus` | Excluded `Age`, `Gender`, `MaritalStatus` (same 32 inputs as production) | **Strictly Excluded `Age`, `Gender`, `MaritalStatus`** |
+| **Calibration Method** | Uncalibrated probabilities | 5-Fold Platt Sigmoid Scaling | **5-Fold Platt Sigmoid Scaling** |
+| **Expected Calibration Error (ECE)** | 0.1420 (Poor calibration) | 0.0402 | **0.0546** |
+| **Brier Score** | 0.1284 | 0.1004 | **0.1034** |
+| **Holdout ROC-AUC** | 0.7640 | 0.8163 | **0.7865** |
+| **Holdout PR-AUC** | 0.4820 | 0.5663 | **0.5558** |
+
+Ensemble and production figures are from `reports/experiments/final_holdout_metrics.json` (recomputed from the saved models and matching). With 47 leavers in the holdout, the two models' 95% intervals overlap heavily (PR-AUC 0.43-0.70 vs 0.42-0.69), so the ensemble's higher scores are not a reliable difference.
 | **Interpretability** | Non-linear tree heuristics | Black-box weighted ensemble | **Exact linear coefficients ($\beta_i \cdot x_i$)** |
 | **Production Decision** | Deprecated / Excluded | Research-Only Benchmark | **Sole Primary Production Model** |
 
@@ -160,7 +164,7 @@ During development, multiple candidate architectures were evaluated against stri
 
 ### Holdout Performance Summary ($N=294$)
 
-Evaluated on the frozen holdout partition at the decision threshold $p = 0.16$ (tuned to optimize $F_1$ score on cross-validation):
+Evaluated on the frozen holdout partition at the decision threshold $p = 0.16$ (tuned to optimize $F_1$ score on cross-validation). Source: `reports/experiments/final_holdout_metrics.json` (`baseline_model.at_day2_threshold_0_16`):
 
 | Metric | Holdout Value | Definition & Significance |
 | :--- | :--- | :--- |
@@ -168,10 +172,10 @@ Evaluated on the frozen holdout partition at the decision threshold $p = 0.16$ (
 | **PR-AUC** | **0.5558** | Area under the Precision-Recall curve (base rate = 0.1599). |
 | **Brier Score** | **0.1034** | Mean squared difference between predicted probability and actual binary outcome. |
 | **ECE (10 bins)** | **0.0546** | Expected Calibration Error; measures probability reliability. |
-| **Sensitivity / Recall** | **65.96%** | Correctly identifies 31 out of 47 attriting employees at threshold 0.16. |
-| **Precision** | **36.47%** | 31 out of 85 flagged employees actually resigned. |
-| **$F_1$ Score** | **0.4697** | Harmonic mean of precision and recall at threshold 0.16. |
-| **Specificity** | **78.14%** | Correctly clears 193 out of 247 retained employees as non-attriting. |
+| **Sensitivity / Recall** | **68.09%** | Correctly identifies 32 out of 47 attriting employees at threshold 0.16. |
+| **Precision** | **34.78%** | 32 out of 92 flagged employees actually resigned. |
+| **$F_1$ Score** | **0.4604** | Harmonic mean of precision and recall at threshold 0.16. |
+| **Specificity** | **75.71%** | Correctly clears 187 out of 247 retained employees as non-attriting. |
 
 ### Demographic Subgroup Fairness Audit ($p = 0.16$)
 
@@ -179,8 +183,8 @@ To maintain full transparency, RetainIQ underwent a rigorous demographic error r
 
 | Demographic Slice | Subgroup Size ($N$) | Positives (Attrition) | False Negative Rate (FNR) | False Positive Rate (FPR) | Subgroup Recall |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Age 40 and Older** | 102 | 16 | **50.00%** | 17.65% | 50.00% |
-| **Under 40** | 192 | 31 | **22.58%** | 25.14% | 77.42% |
+| **Age 40 and Older** | 101 | 16 | **50.00%** | 14.12% | 50.00% |
+| **Under 40** | 193 | 31 | **22.58%** | 29.63% | 77.42% |
 | **Female** | 116 | 16 | **31.25%** | 31.00% | 68.75% |
 | **Male** | 178 | 31 | **32.26%** | 19.73% | 67.74% |
 
@@ -236,6 +240,8 @@ source .venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+`requirements.txt` lists only the direct dependencies (works on Windows, macOS and Linux). `scikit-learn` is pinned exactly because the saved models are pickles made with it.
+The full research benchmark in `src/evaluate.py` also needs LightGBM and XGBoost: `pip install -r requirements-research.txt` (on macOS run `brew install libomp` first).
 
 ### Step 4: Launch the Dashboard
 Run the Streamlit application from the project root:
@@ -253,32 +259,18 @@ The application will launch locally at `http://localhost:8501`.
 
 ## 9. Automated Testing & Verification
 
-RetainIQ includes a comprehensive test suite of **29 automated tests** validating data pipelines, model calibration, feature exclusions, SHAP calculations, missing value handling, and dashboard page structures.
+RetainIQ includes a test suite of **32 automated tests** validating data pipelines, model calibration, feature exclusions, SHAP calculations, missing value handling, out-of-sample (honest) dashboard scoring, and dashboard page structures.
 
 ### Execute All Tests
-Run the test runner from the repository root:
+Run from the repository root (`pytest` is in `requirements.txt`; it also runs the `unittest`-style test classes):
 ```bash
-python -m unittest discover -s tests -v
+python -m pytest -q
 ```
 
 ### Expected Output
 ```text
-test_data_loading_and_cleaning (test_day3_dashboard.TestDay3Dashboard) ... ok
-test_page_rendering_smoke (test_day3_dashboard.TestDay3Dashboard) ... ok
-...
-test_01_primary_model_identity (test_day4_e2e_validation.TestDay4EndToEndValidation) ... ok
-test_02_feature_exclusion_compliance (test_day4_e2e_validation.TestDay4EndToEndValidation) ... ok
-test_03_prediction_pipeline_e2e (test_day4_e2e_validation.TestDay4EndToEndValidation) ... ok
-test_04_handling_missing_numerical_values (test_day4_e2e_validation.TestDay4EndToEndValidation) ... ok
-test_05_handling_unseen_categorical_levels (test_day4_e2e_validation.TestDay4EndToEndValidation) ... ok
-test_06_handling_extra_unexpected_columns (test_day4_e2e_validation.TestDay4EndToEndValidation) ... ok
-test_07_shap_probability_consistency (test_day4_e2e_validation.TestDay4EndToEndValidation) ... ok
-test_08_no_punitive_recommendations (test_day4_e2e_validation.TestDay4EndToEndValidation) ... ok
-
-----------------------------------------------------------------------
-Ran 29 tests in 4.10s
-
-OK
+................................                                         [100%]
+32 passed
 ```
 
 ### Automated Headless Inspection Check
@@ -294,8 +286,7 @@ python scripts/manual_inspection_qa.py
 ```text
 RetainIQ/
 ├── .streamlit/
-│   ├── config.toml                            # Dashboard theme and headless server configuration
-│   └── secrets.toml                           # Local secrets placeholder (git-ignored)
+│   └── config.toml                            # Dashboard theme and headless server configuration
 ├── app/
 │   └── main.py                                # Streamlit multi-page dashboard application
 ├── data/
@@ -315,26 +306,32 @@ RetainIQ/
 │   ├── calibrated_model_day2_age_excluded.pkl # Sole Primary Production Model (Calibrated LogReg)
 │   ├── calibrated_ensemble_50_50.pkl          # Research-Only Benchmark Model (Not in prod)
 │   └── model_metadata.json                    # Feature lists, thresholds, and performance metrics
+├── notebooks/
+│   └── eda.py                                 # Exploratory analysis that writes reports/eda/ figures
+├── reports/
+│   ├── eda/                                   # EDA and SHAP figures
+│   └── experiments/                           # CV, nested-CV, calibration and final holdout results
 ├── scripts/
-│   ├── manual_inspection_qa.py                # Automated Streamlit AppTest and live port probe
-│   └── run_experiments.py                     # Historical experiment execution script
+│   └── manual_inspection_qa.py                # Automated Streamlit AppTest and live port probe
 ├── src/
 │   ├── __init__.py
 │   ├── data.py                                # Data loader, KPI aggregations, and formatting
-│   ├── evaluate.py                            # Evaluation metrics, Brier score, and calibration curves
-│   ├── explainability.py                      # SHAP attribution engine and plain-English translation
 │   ├── features.py                            # Feature engineering and transformation utilities
-│   └── model.py                               # Risk scoring, feature alignment, and inference API
+│   ├── model.py                               # Risk scoring (honest out-of-sample), feature alignment, inference API
+│   ├── explainability.py                      # SHAP attribution engine and plain-English translation
+│   ├── evaluate.py                            # Model benchmark incl. LightGBM / XGBoost (needs requirements-research.txt)
+│   ├── experiments.py                         # Cross-validated model experiments
+│   ├── audit_analysis.py                      # Pre-holdout nested-CV audit
+│   └── final_evaluation.py                    # One-time frozen holdout evaluation
 ├── tests/
-│   ├── __init__.py
-│   ├── test_data.py                           # Tests for data loading and cleaning
-│   ├── test_day3_dashboard.py                 # Tests for dashboard integration
+│   ├── test_validation.py                     # Data and feature validation tests
+│   ├── test_model_experiments.py              # Experiment pipeline tests
+│   ├── test_day3_integration.py               # Dashboard integration tests
 │   ├── test_day4_e2e_validation.py            # End-to-end tests for primary model and fairness
-│   ├── test_evaluate.py                       # Tests for evaluation metrics
-│   ├── test_features.py                       # Tests for feature preprocessing
-│   └── test_model.py                          # Tests for model training and prediction
+│   └── test_honest_scoring.py                 # Dashboard scores are out-of-sample for every employee
 ├── .gitignore                                 # Git ignore rules for venv, secrets, cache, and exports
-├── requirements.txt                           # Frozen pip dependencies
+├── requirements.txt                           # Direct dependencies (cross-platform)
+├── requirements-research.txt                  # Extra LightGBM / XGBoost for src/evaluate.py
 └── README.md                                  # Main project documentation
 ```
 

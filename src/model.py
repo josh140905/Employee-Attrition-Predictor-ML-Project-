@@ -199,20 +199,73 @@ def get_or_train_model(df: pd.DataFrame) -> Pipeline:
     return pipe
 
 
+HOLDOUT_TEST_SIZE = 0.20   # must match src/final_evaluation.py (frozen Day 1 split)
+SPLIT_RANDOM_STATE = 42
+
+
+def _is_full_benchmark_roster(df: pd.DataFrame) -> bool:
+    """True when df is the complete IBM roster in its original row order (so the frozen
+    train/holdout split can be reproduced by position)."""
+    if "Attrition" not in df.columns or "EmployeeNumber" not in df.columns:
+        return False
+    try:
+        full = load_raw_data()
+    except Exception:
+        return False
+    return len(df) == len(full) and np.array_equal(df["EmployeeNumber"].to_numpy(),
+                                                   full["EmployeeNumber"].to_numpy())
+
+
+def honest_probabilities(model: Any, X: pd.DataFrame, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Score every employee with a model that did NOT train on them.
+
+    - Holdout rows (frozen 20% split): the production model's prediction (it never saw them).
+    - Training rows (80%): 5-fold out-of-fold predictions from clones of the production
+      pipeline, refit on the other training folds only.
+    Returns (probabilities, score_source labels).
+    """
+    from sklearn.base import clone
+    from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
+
+    idx = np.arange(len(X))
+    itr, ite = train_test_split(idx, test_size=HOLDOUT_TEST_SIZE,
+                                random_state=SPLIT_RANDOM_STATE, stratify=y)
+    proba = np.empty(len(X))
+    proba[ite] = model.predict_proba(X.iloc[ite])[:, 1]
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SPLIT_RANDOM_STATE)
+    proba[itr] = cross_val_predict(clone(model), X.iloc[itr], y[itr], cv=cv,
+                                   method="predict_proba")[:, 1]
+    source = np.full(len(X), "Out-of-fold (training split)", dtype=object)
+    source[ite] = "Holdout (never trained on)"
+    return proba, source
+
+
 @cache_data
 def generate_employee_risk_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Apply the primary calibrated model (Age-Excluded Platt Sigmoid) to generate
     calibrated flight risk probabilities and operational risk tiers.
+
+    For the full benchmark roster, scores are out-of-sample for every employee (see
+    `honest_probabilities`): scoring training rows with a model fitted on them would make
+    80% of the dashboard look more certain than the model really is (in-sample ROC-AUC
+    0.87 vs 0.79 on the holdout). Any other input (new employees, a subset) is scored
+    directly by the production model.
     """
     model = get_primary_calibrated_model()
     X, _ = prepare_calibrated_features(df)
-    
-    # Predict calibrated probability of leaving (Class 1)
-    probabilities = model.predict_proba(X)[:, 1]
-    
+
+    if _is_full_benchmark_roster(df):
+        y = (df["Attrition"].astype(str).str.strip() == "Yes").astype(int).to_numpy()
+        probabilities, score_source = honest_probabilities(model, X, y)
+    else:
+        probabilities = model.predict_proba(X)[:, 1]
+        score_source = np.full(len(X), "Production model", dtype=object)
+
     scored_df = df.copy()
     scored_df["Calibrated_Probability"] = probabilities.round(4)
+    scored_df["Score_Source"] = score_source
     scored_df["Flight_Risk_Score"] = (probabilities * 100).round(1)
     
     # Assign HR-readable Risk Tiers aligned with Day 2 Governance Thresholds:

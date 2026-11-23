@@ -327,8 +327,23 @@ with st.sidebar:
         df_filtered = data[data["Department"] == selected_dept].copy()
     else:
         df_filtered = data.copy()
-        
-    st.caption(f"Active filter: **{len(df_filtered):,}** employees")
+
+    # Flight-risk views are for people who still work here. Historical turnover rates
+    # (df_filtered / data) keep everyone; risk counts, rosters and cost exposure use
+    # df_risk / data_risk, which drop employees who already left (Attrition = Yes).
+    current_only = st.toggle(
+        "Current employees only",
+        value=True,
+        help="Hide employees who already left from risk lists, counts and cost exposure. "
+             "Historical turnover rates always include everyone."
+    )
+    if current_only:
+        data_risk = data[data["Attrition"] == "No"]
+        df_risk = df_filtered[df_filtered["Attrition"] == "No"]
+    else:
+        data_risk, df_risk = data, df_filtered
+
+    st.caption(f"Active filter: **{len(df_risk):,}** employees")
     st.divider()
     
     # Active Production Engine Governance Status
@@ -404,18 +419,19 @@ if page == "Overview":
     """, unsafe_allow_html=True)
     
     # 1. Uniform KPI Cards Row
-    total_count = len(df_filtered)
-    high_risk_count = int((df_filtered["Risk_Level"] == "High").sum())
+    total_count = len(df_risk)
+    high_risk_count = int((df_risk["Risk_Level"] == "High").sum())
     high_risk_pct = (high_risk_count / total_count * 100) if total_count > 0 else 0.0
-    
-    med_risk_count = int((df_filtered["Risk_Level"] == "Medium").sum())
+
+    med_risk_count = int((df_risk["Risk_Level"] == "Medium").sum())
     med_risk_pct = (med_risk_count / total_count * 100) if total_count > 0 else 0.0
-    
+
+    # Historical turnover always uses every record, including those who left
     past_attritions = int((df_filtered["Attrition"] == "Yes").sum())
-    hist_turnover_pct = (past_attritions / total_count * 100) if total_count > 0 else 0.0
-    
+    hist_turnover_pct = (past_attritions / len(df_filtered) * 100) if len(df_filtered) > 0 else 0.0
+
     # Estimated benchmark replacement cost exposure (benchmark: 1.5x annual base = MonthlyIncome * 18)
-    total_cost_exposure = df_filtered[df_filtered["Risk_Level"] == "High"]["Replacement_Cost_At_Risk"].sum()
+    total_cost_exposure = df_risk[df_risk["Risk_Level"] == "High"]["Replacement_Cost_At_Risk"].sum()
     cost_display = f"${total_cost_exposure / 1e6:.1f}M" if total_cost_exposure >= 1e6 else f"${total_cost_exposure / 1e3:.0f}K"
     
     c1, c2, c3, c4 = st.columns(4)
@@ -424,7 +440,7 @@ if page == "Overview":
         <div class="kpi-card">
             <div class="kpi-title">Active Evaluated Workforce</div>
             <div class="kpi-value">{total_count:,}</div>
-            <div class="kpi-subtitle">Total active employee records</div>
+            <div class="kpi-subtitle">{"Current employees (past leavers excluded)" if current_only else "All employee records, incl. past leavers"}</div>
         </div>
         """, unsafe_allow_html=True)
     with c2:
@@ -468,7 +484,7 @@ if page == "Overview":
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
         st.markdown("**Model-Predicted Risk Tier Distribution by Department**")
         
-        dept_risk = data.groupby(["Department", "Risk_Level"]).size().unstack(fill_value=0).reset_index()
+        dept_risk = data_risk.groupby(["Department", "Risk_Level"]).size().unstack(fill_value=0).reset_index()
         for col in ["Low", "Medium", "High"]:
             if col not in dept_risk.columns:
                 dept_risk[col] = 0
@@ -492,9 +508,13 @@ if page == "Overview":
         
         dept_comp = data.groupby("Department").agg(
             Headcount=("EmployeeNumber", "count"),
-            Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100),
-            Predicted_High_Risk=("Risk_Level", lambda x: (x == "High").mean() * 100)
-        ).reset_index()
+            Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100)
+        ).reset_index().merge(
+            data_risk.groupby("Department").agg(
+                Predicted_High_Risk=("Risk_Level", lambda x: (x == "High").mean() * 100)
+            ).reset_index(),
+            on="Department", how="left"
+        ).fillna({"Predicted_High_Risk": 0.0})
         
         fig_comp = go.Figure()
         fig_comp.add_trace(go.Bar(
@@ -518,17 +538,23 @@ if page == "Overview":
     st.markdown('<div class="content-box">', unsafe_allow_html=True)
     st.markdown("**Departmental Workforce & Retention Breakdown**")
     
-    dept_tbl = data.groupby("Department").agg(
+    # Risk columns: current scope (data_risk); history columns: every record (data)
+    dept_tbl = data_risk.groupby("Department").agg(
         Total_Headcount=("EmployeeNumber", "count"),
         High_Risk_Count=("Risk_Level", lambda x: (x == "High").sum()),
         Elevated_Alert_Count=("Risk_Level", lambda x: (x == "Medium").sum()),
-        Past_Attrition_Count=("Attrition", lambda x: (x == "Yes").sum()),
         Avg_Monthly_Salary=("MonthlyIncome", "mean"),
         Avg_Tenure_Years=("YearsAtCompany", "mean")
-    ).reset_index()
-    
+    ).reset_index().merge(
+        data.groupby("Department").agg(
+            All_Records=("EmployeeNumber", "count"),
+            Past_Attrition_Count=("Attrition", lambda x: (x == "Yes").sum())
+        ).reset_index(),
+        on="Department", how="left"
+    )
+
     dept_tbl["High_Risk_%"] = (dept_tbl["High_Risk_Count"] / dept_tbl["Total_Headcount"] * 100).round(1)
-    dept_tbl["Past_Turnover_%"] = (dept_tbl["Past_Attrition_Count"] / dept_tbl["Total_Headcount"] * 100).round(1)
+    dept_tbl["Past_Turnover_%"] = (dept_tbl["Past_Attrition_Count"] / dept_tbl["All_Records"] * 100).round(1)
     dept_tbl["Avg_Monthly_Salary"] = dept_tbl["Avg_Monthly_Salary"].apply(lambda v: f"${int(v):,}")
     dept_tbl["Avg_Tenure_Years"] = dept_tbl["Avg_Tenure_Years"].round(1).astype(str) + " yrs"
     
@@ -595,7 +621,7 @@ elif page == "Employee Directory":
             label_visibility="collapsed"
         )
         
-    roster_df = data.copy()
+    roster_df = data_risk.copy()
     if search_query:
         roster_df = roster_df[
             roster_df["Employee_Display_ID"].str.lower().str.contains(search_query) |
@@ -706,6 +732,8 @@ elif page == "Employee Directory":
             # Calibrated SHAP Attribution Breakdown
             st.markdown(f"**Model Attribution (Calibrated Probability Space)**")
             st.caption(f"Baseline Expected Risk: **{exp_res['base_value_probability']*100:.1f}%** • Model: Calibrated Age-Excluded Engine")
+            st.caption(f"Risk score source: **{selected_emp.get('Score_Source', 'Production model')}** — no employee is "
+                       "scored by a model that trained on them. Attributions explain the final production model.")
             
             # Top Risk Amplifiers
             if exp_res["top_risk_amplifiers"]:
@@ -788,7 +816,7 @@ elif page == "Risk Analysis":
         
         bins = [0.0, 0.10, 0.16, 0.25, 0.40, 1.0]
         labels = ["0–10% (Minimal)", "10–16% (Low)", "16–25% (Medium Alert)", "25–40% (High)", "40%+ (Critical)"]
-        df_dist = df_filtered.copy()
+        df_dist = df_risk.copy()
         df_dist["Prob_Bin"] = pd.cut(df_dist["Calibrated_Probability"], bins=bins, labels=labels)
         dist_counts = df_dist["Prob_Bin"].value_counts(sort=False).reset_index()
         dist_counts.columns = ["Risk_Bracket", "Employee_Count"]
@@ -812,7 +840,7 @@ elif page == "Risk Analysis":
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
         st.markdown("**Job Role Flight Risk Ranking (% High Risk)**")
         
-        role_agg = df_filtered.groupby("JobRole").agg(
+        role_agg = df_risk.groupby("JobRole").agg(
             Total=("EmployeeNumber", "count"),
             HighRisk=("Risk_Level", lambda x: (x == "High").sum()),
             AvgRisk=("Flight_Risk_Score", "mean")
@@ -842,7 +870,7 @@ elif page == "Risk Analysis":
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
         st.markdown("**Overtime Workload Impact on Flight Risk**")
         
-        ot_stat = df_filtered.groupby("OverTime").agg(
+        ot_stat = df_risk.groupby("OverTime").agg(
             Total=("EmployeeNumber", "count"),
             HighRisk=("Risk_Level", lambda x: (x == "High").sum()),
             AvgScore=("Flight_Risk_Score", "mean")
@@ -869,7 +897,7 @@ elif page == "Risk Analysis":
         st.markdown('<div class="content-box">', unsafe_allow_html=True)
         st.markdown("**Impact of Reported Job Satisfaction Sentiment**")
         
-        sat_stat = df_filtered.groupby("JobSatisfaction").agg(
+        sat_stat = df_risk.groupby("JobSatisfaction").agg(
             Total=("EmployeeNumber", "count"),
             HighRisk=("Risk_Level", lambda x: (x == "High").sum()),
             AvgRisk=("Flight_Risk_Score", "mean")
@@ -921,12 +949,14 @@ elif page == "Risk Analysis":
     col_g, col_a = st.columns(2)
     with col_g:
         st.markdown("**Gender Cohort Monitoring (Active Workforce & Test Benchmark)**")
-        gender_tbl = data.groupby("Gender").agg(
+        gender_tbl = data_risk.groupby("Gender").agg(
             Active_Headcount=("EmployeeNumber", "count"),
             Predicted_Alerts=("Risk_Level", lambda x: (x.isin(["High", "Medium"])).sum()),
-            Avg_Flight_Risk=("Flight_Risk_Score", "mean"),
-            Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100)
-        ).reset_index()
+            Avg_Flight_Risk=("Flight_Risk_Score", "mean")
+        ).reset_index().merge(
+            data.groupby("Gender").agg(Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100)).reset_index(),
+            on="Gender", how="left"
+        )
         gender_tbl["Selection_Rate_%"] = (gender_tbl["Predicted_Alerts"] / gender_tbl["Active_Headcount"] * 100).round(1)
         gender_tbl["Avg_Flight_Risk"] = gender_tbl["Avg_Flight_Risk"].round(1).astype(str) + "%"
         gender_tbl["Historical_Rate_%"] = gender_tbl["Historical_Rate"].round(1).astype(str) + "%"
@@ -953,12 +983,15 @@ elif page == "Risk Analysis":
         st.markdown("**ADEA Age Cohort Monitoring (Active Workforce & Test Benchmark)**")
         data_age = data.copy()
         data_age["ADEA_Cohort"] = np.where(data_age["Age"] >= 40, "40 and Over", "Under 40")
-        age_tbl = data_age.groupby("ADEA_Cohort").agg(
+        data_age_risk = data_age[data_age["Attrition"] == "No"] if current_only else data_age
+        age_tbl = data_age_risk.groupby("ADEA_Cohort").agg(
             Active_Headcount=("EmployeeNumber", "count"),
             Predicted_Alerts=("Risk_Level", lambda x: (x.isin(["High", "Medium"])).sum()),
-            Avg_Flight_Risk=("Flight_Risk_Score", "mean"),
-            Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100)
-        ).reset_index()
+            Avg_Flight_Risk=("Flight_Risk_Score", "mean")
+        ).reset_index().merge(
+            data_age.groupby("ADEA_Cohort").agg(Historical_Rate=("Attrition", lambda x: (x == "Yes").mean() * 100)).reset_index(),
+            on="ADEA_Cohort", how="left"
+        )
         age_tbl["Selection_Rate_%"] = (age_tbl["Predicted_Alerts"] / age_tbl["Active_Headcount"] * 100).round(1)
         age_tbl["Avg_Flight_Risk"] = age_tbl["Avg_Flight_Risk"].round(1).astype(str) + "%"
         age_tbl["Historical_Rate_%"] = age_tbl["Historical_Rate"].round(1).astype(str) + "%"
@@ -1105,7 +1138,7 @@ elif page == "Insights":
     
     sc1, sc2 = st.columns([1, 2])
     with sc1:
-        high_risk_total = max(1, int((df_filtered["Risk_Level"] == "High").sum()))
+        high_risk_total = max(1, int((df_risk["Risk_Level"] == "High").sum()))
         sim_saved = st.slider(
             "Target High-Risk Employees Retained",
             min_value=1,
@@ -1113,7 +1146,7 @@ elif page == "Insights":
             value=min(10, high_risk_total),
             step=1
         )
-        avg_high_salary = df_filtered[df_filtered["Risk_Level"] == "High"]["MonthlyIncome"].mean()
+        avg_high_salary = df_risk[df_risk["Risk_Level"] == "High"]["MonthlyIncome"].mean()
         if pd.isna(avg_high_salary) or avg_high_salary == 0:
             avg_high_salary = data["MonthlyIncome"].mean()
             

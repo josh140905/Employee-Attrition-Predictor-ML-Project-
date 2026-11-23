@@ -1,0 +1,5 @@
+# Extra libraries for the full model benchmark in src/evaluate.py only.
+# macOS: LightGBM also needs OpenMP from Homebrew first:  brew install libomp
+-r requirements.txt
+lightgbm>=4.0
+xgboost>=2.0
